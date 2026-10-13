@@ -1,0 +1,76 @@
+// ====================================================
+// TalentFlow Prisma Database Schema
+// Database: SQLite for zero-setup local execution & demo
+// ====================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// User Model with Role-Based Access Control (RBAC)
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  name      String
+  role      String   @default("RECRUITER") // "ADMIN" | "RECRUITER"
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("users")
+}
+
+// Job Offer Model
+model Job {
+  id             String        @id @default(uuid())
+  title          String
+  department     String        @default("Engineering")
+  location       String        @default("Remote")
+  description    String
+  requiredSkills String        // JSON array or comma-separated string of required skills
+  status         String        @default("OPEN") // "DRAFT" | "OPEN" | "CLOSED"
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  applications   Application[]
+
+  @@map("jobs")
+}
+
+// Candidate Model
+model Candidate {
+  id              String        @id @default(uuid())
+  name            String
+  email           String        @unique
+  phone           String?
+  experienceYears Int           @default(0)
+  skills          String        // Comma-separated string or JSON array of skills
+  educationLevel  String        // e.g., "Bachelor's", "Master's", "PhD"
+  cvText          String        // Raw CV text
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  applications    Application[]
+
+  @@map("candidates")
+}
+
+// Application Pipeline Model (Linking Candidate <-> Job Offer)
+model Application {
+  id          String    @id @default(uuid())
+  candidateId String
+  jobId       String
+  status      String    @default("NEW") // "NEW" | "SCREENING" | "INTERVIEW" | "OFFER" | "REJECTED"
+  notes       String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  candidate   Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  job         Job       @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@unique([candidateId, jobId])
+  @@map("applications")
+}
