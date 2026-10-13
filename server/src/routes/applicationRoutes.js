@@ -16,6 +16,11 @@ router.get('/', applicationController.getApplications);
 router.get('/:id', applicationController.getApplicationById);
 router.post('/', validate(createApplicationSchema), applicationController.createApplication);
 router.put(
+  '/:id',
+  validate(updateApplicationStatusSchema),
+  applicationController.updateApplicationStatus
+);
+router.put(
   '/:id/status',
   validate(updateApplicationStatusSchema),
   applicationController.updateApplicationStatus
