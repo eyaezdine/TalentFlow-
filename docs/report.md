@@ -200,11 +200,147 @@ erDiagram
 
 ---
 
+---
+
 ## 9. AI Module Engineering & Compliance
-*(Detailed in Phase 5)*
-- **Models**: `claude-3-5-sonnet-20241022` (configurable via `AI_MODEL` environment variable)
-- **Temperature**: `0.2` for deterministic, grounded HR assessments
-- **Max Tokens**: `1000`
+
+The TalentFlow AI module incorporates Anthropic's Claude LLM to augment HR workflows across three core capabilities: **Candidate Professional Summaries**, **Candidate-Job Matching Analysis**, and **Tailored Interview Question Generation**. The implementation adheres strictly to the mandatory constraints established for software engineering reliability and privacy.
+
+### 9.1 Model Configuration & Rationale
+- **Model**: `claude-3-5-sonnet-20241022` (dynamically configurable via the `AI_MODEL` environment variable).
+- **Rationale**: Claude 3.5 Sonnet exhibits state-of-the-art instruction-following and JSON syntax precision, ensuring near-zero hallucination rates and reliable adherence to strict Zod output schemas.
+- **Inference Parameters**:
+  - `temperature: 0.2`: Low temperature to produce deterministic, calibrated, and factual HR assessments without unwarranted creative drift.
+  - `max_tokens: 1000`: Sufficient headroom for comprehensive responses while preventing runaway token consumption.
+
+---
+
+### 9.2 Mandatory Rule R1: PII Anonymization Layer
+
+In compliance with European GDPR data minimization principles and assignment Rule R1, **raw candidate personally identifiable information (PII) is never transmitted to the external LLM**.
+
+#### Sanitization Pipeline (`server/src/ai/anonymize.js`)
+Before assembling any LLM prompt, the candidate payload passes through a deterministic anonymizer:
+1. **Email Scrubbing**: High-precision email regex replaces all email addresses with `[EMAIL_REDACTED]`.
+2. **Phone Number Scrubbing**: International E.164 and localized formats are replaced with `[PHONE_REDACTED]`.
+3. **Physical Address Scrubbing**: Postal addresses, street suffixes, and ZIP codes are replaced with `[ADDRESS_REDACTED]`.
+4. **Candidate Name Scrubbing**: First, middle, and last name tokens are scrubbed from unstructured CV text and replaced with an opaque pseudonym (e.g., `Candidate A`).
+5. **Payload Filtering**: Raw contact fields are stripped; only non-identifying technical qualifications (`skills`, `experienceYears`, `educationLevel`, and scrubbed `cvText`) are provided in the prompt.
+
+#### Anonymization Data In vs. Data Sent
+
+| Category | Raw Stored Data (DB) | Transmitted to Claude LLM (Rule R1) | Status |
+|:---|:---|:---|:---|
+| **Candidate Name** | Sarah Connor | `Candidate A` (pseudonym token) | **Masked** |
+| **Email Address** | `sarah.connor@cyberdyne.io` | *(Field omitted & regex-scrubbed)* | **Redacted** |
+| **Phone Number** | `+1-555-0199` | *(Field omitted & regex-scrubbed)* | **Redacted** |
+| **Physical Address** | 450 Tech Way, Silicon Valley | *(Regex-scrubbed to `[ADDRESS_REDACTED]`)* | **Redacted** |
+| **Experience Years** | 6 | 6 | Retained |
+| **Education Level** | Master's Degree | Master's Degree | Retained |
+| **Skill Set** | React, Node.js, TypeScript, Docker | React, Node.js, TypeScript, Docker | Retained |
+| **CV Content** | Contains full personal contact details | Free-text scrubbed with all PII masked | Sanitized |
+
+---
+
+### 9.3 Versioned Prompt Engineering (Rule R4)
+
+All prompts reside in `server/src/ai/prompts/` as modular, version-controlled artifacts to maintain auditability.
+
+#### Feature 1: Candidate Executive Summary (`summaryPrompt.v1.js`)
+- **System Prompt**:
+```text
+You are an expert HR recruitment specialist and talent assessor.
+Analyze the provided anonymized candidate qualifications and produce a concise 3-sentence professional summary highlighting core competence, senior capability, and ideal functional positioning.
+Extract 3 to 10 prominent technical keywords from their profile.
+
+CRITICAL INSTRUCTION:
+You MUST reply ONLY with a valid, single JSON object. Do not include markdown code fences, backticks, conversational preambles, or postscripts.
+Your output must conform exactly to this schema:
+{
+  "summary": "3-sentence professional assessment...",
+  "keywords": ["keyword1", "keyword2", "keyword3"]
+}
+```
+- **User Prompt Template**:
+```text
+Anonymized Candidate Profile:
+- Identifier: Candidate A
+- Years of Professional Experience: 6
+- Education Level: Master's Degree
+- Technical Skills: React, Node.js, TypeScript, Docker
+- Sanitized Qualifications & Experience:
+[Sanitized CV text]
+```
+
+#### Feature 2: Candidate <-> Job Matching (`matchingPrompt.v1.js`)
+- **System Prompt**:
+```text
+You are a senior technical hiring assessor and recruitment matchmaker.
+Evaluate the alignment between an anonymized candidate profile and the target job opening requirements.
+Calculate an objective compatibility score between 0 and 100 based strictly on technical competence, experience depth, and requirement coverage.
+Identify clear strengths, concrete gaps or missing qualifications, and a concise hiring recommendation.
+
+CRITICAL INSTRUCTION:
+Reply ONLY with a raw JSON object matching this schema:
+{
+  "score": number (0-100 integer),
+  "strengths": ["strength 1", "strength 2"],
+  "gaps": ["gap or risk 1", "gap or risk 2"],
+  "recommendation": "1-2 sentence actionable hiring recommendation"
+}
+```
+
+#### Feature 3: Tailored Interview Questions (`interviewPrompt.v1.js`)
+- **System Prompt**:
+```text
+You are a technical recruitment specialist and interview panel lead.
+Generate EXACTLY 5 calibrated, rigorous interview questions tailored specifically to the candidate's background and the target role.
+Ensure balanced distribution across:
+1. Technical Architecture / Deep dive
+2. Hands-on Coding / Problem solving
+3. System Scalability / Edge cases
+4. Behavioral & Culture Alignment
+5. Scenario / Leadership Challenge
+
+CRITICAL INSTRUCTION:
+Reply ONLY with a raw JSON object containing exactly 5 questions matching this schema:
+{
+  "questions": [
+    {
+      "question": "Full verbatim question string",
+      "category": "Category label",
+      "rationale": "Evaluation criteria and target answers for the interviewer"
+    }
+  ]
+}
+```
+
+---
+
+### 9.4 Output Validation Pipeline (Rule R2)
+
+Every LLM completion is intercepted and validated via Zod schemas (`server/src/ai/schemas.js`) before returning to the caller:
+1. **JSON Parsing & Cleanup**: The raw completion is stripped of extraneous markdown fences (````json ... ````) and parsed with `JSON.parse`.
+2. **Zod Schema Validation**:
+   - `candidateSummarySchema`: Enforces sentence count (2–5 sentences) and minimum 3 technical keywords.
+   - `jobMatchSchema`: Enforces integer score between 0 and 100, non-empty strengths array, and explicit recommendation string.
+   - `interviewQuestionsSchema`: Enforces an array with length of exactly 5 items, each containing non-empty `question`, `category`, and `rationale` fields.
+3. **Automatic 1-Retry Policy**: If the model response fails JSON parsing or schema validation, the client automatically re-prompts the model with explicit correction instructions.
+4. **Fallback Handling**: If validation fails a second time, a structured error `{ code: 'AI_VALIDATION_ERROR', message: ... }` is returned, preventing unvalidated text from ever entering the UI.
+
+---
+
+### 9.5 Resilience & Fault-Tolerance Matrix (Rule R3)
+
+The application remains fully operational when the AI service experiences degradation or outages:
+
+| Error Condition | Detection Mechanism | System Action & Resilience Behavior | UI Presentation |
+|:---|:---|:---|:---|
+| **Request Timeout** | `AbortController` set to 15,000ms | Request aborted immediately; worker thread freed. | Amber alert banner: *"AI Request Timed Out (Rule R3)"* with a 1-click Retry button. |
+| **Rate Limit / 429 Quota** | HTTP 429 status code from Anthropic API | Exponential backoff retry once (1,000ms delay). | Rose notice: *"AI Rate Limit Reached — Please wait a moment before retrying."* |
+| **Missing API Key** | Pre-flight check at startup and before request | Halts invocation; skips API call; returns graceful status. | Info banner: *"AI Service Key Unconfigured — System operating in offline mode."* |
+| **Invalid JSON Output** | `JSON.parse` syntax error or Zod schema violation | Immediate 1-time automated re-prompt with schema reprimand. | Friendly error banner with detailed error code and retry capability. |
+| **Network Outage** | `ECONNREFUSED` / DNS lookup failure | Caught in `try...catch` block; logged to system logger. | Safe fallback: *"AI Service Temporarily Unavailable."* Core CRUD operations remain unaffected. |
 
 ---
 
