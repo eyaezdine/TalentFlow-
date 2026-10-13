@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import api from '../api/client';
 import Modal from '../components/Modal';
+import AiMatchModal from '../components/AiMatchModal';
+import AiQuestionsModal from '../components/AiQuestionsModal';
 import {
   GitPullRequest,
   Plus,
@@ -13,6 +15,8 @@ import {
   Loader2,
   CheckCircle2,
   Calendar,
+  Sparkles,
+  HelpCircle,
 } from 'lucide-react';
 
 const PIPELINE_COLUMNS = [
@@ -35,6 +39,13 @@ const Applications = () => {
   const [isNotesModalOpen, setIsNotesModalOpen] = useState(false);
   const [selectedAppForNotes, setSelectedAppForNotes] = useState(null);
   const [notesInput, setNotesInput] = useState('');
+
+  // AI Modal states
+  const [isMatchModalOpen, setIsMatchModalOpen] = useState(false);
+  const [isQuestionsModalOpen, setIsQuestionsModalOpen] = useState(false);
+  const [selectedAiCandidate, setSelectedAiCandidate] = useState(null);
+  const [selectedAiJob, setSelectedAiJob] = useState(null);
+  const [selectedAiAppId, setSelectedAiAppId] = useState(null);
 
   const [createForm, setCreateForm] = useState({
     candidateId: '',
@@ -276,15 +287,40 @@ const Applications = () => {
                           </p>
                         )}
 
-                        {/* Stage Transition Control */}
-                        <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-xs">
-                          <button
-                            onClick={() => handleOpenNotesModal(app)}
-                            className="p-1 rounded text-slate-400 hover:text-brand-600 transition"
-                            title="Edit notes"
-                          >
-                            <MessageSquare className="h-3.5 w-3.5" />
-                          </button>
+                        {/* Stage Transition & AI Controls */}
+                        <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-xs gap-1">
+                          <div className="flex items-center gap-1">
+                            <button
+                              onClick={() => {
+                                setSelectedAiCandidate(app.candidate);
+                                setSelectedAiJob(app.job);
+                                setIsMatchModalOpen(true);
+                              }}
+                              className="p-1 rounded-md border border-brand-200 bg-brand-50 text-brand-600 hover:bg-brand-100 transition"
+                              title="Run AI Candidate-Job Match"
+                            >
+                              <Sparkles className="h-3.5 w-3.5" />
+                            </button>
+                            <button
+                              onClick={() => {
+                                setSelectedAiAppId(app.id);
+                                setSelectedAiCandidate(app.candidate);
+                                setSelectedAiJob(app.job);
+                                setIsQuestionsModalOpen(true);
+                              }}
+                              className="p-1 rounded-md border border-purple-200 bg-purple-50 text-purple-600 hover:bg-purple-100 transition"
+                              title="Generate 5 Tailored Interview Questions"
+                            >
+                              <HelpCircle className="h-3.5 w-3.5" />
+                            </button>
+                            <button
+                              onClick={() => handleOpenNotesModal(app)}
+                              className="p-1 rounded-md border border-slate-200 text-slate-400 hover:text-slate-700 hover:bg-slate-50 transition"
+                              title="Edit application notes"
+                            >
+                              <MessageSquare className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
 
                           <select
                             value={app.status}
@@ -450,6 +486,23 @@ const Applications = () => {
           </div>
         </div>
       </Modal>
+
+      {/* AI Candidate-Job Match Modal (Feature 2) */}
+      <AiMatchModal
+        isOpen={isMatchModalOpen}
+        onClose={() => setIsMatchModalOpen(false)}
+        candidate={selectedAiCandidate}
+        job={selectedAiJob}
+      />
+
+      {/* AI Interview Questions Modal (Feature 3) */}
+      <AiQuestionsModal
+        isOpen={isQuestionsModalOpen}
+        onClose={() => setIsQuestionsModalOpen(false)}
+        applicationId={selectedAiAppId}
+        candidate={selectedAiCandidate}
+        job={selectedAiJob}
+      />
     </div>
   );
 };

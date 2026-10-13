@@ -3,6 +3,8 @@ import api from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import Modal from '../components/Modal';
 import Pagination from '../components/Pagination';
+import AiSummaryModal from '../components/AiSummaryModal';
+import AiMatchModal from '../components/AiMatchModal';
 import {
   Users,
   Plus,
@@ -19,6 +21,7 @@ import {
   AlertCircle,
   Loader2,
   CheckCircle2,
+  Sparkles,
 } from 'lucide-react';
 
 const Candidates = () => {
@@ -35,6 +38,12 @@ const Candidates = () => {
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [selectedCandidate, setSelectedCandidate] = useState(null);
   const [editingCandidate, setEditingCandidate] = useState(null);
+
+  // AI Modals state
+  const [isAiSummaryModalOpen, setIsAiSummaryModalOpen] = useState(false);
+  const [isAiMatchModalOpen, setIsAiMatchModalOpen] = useState(false);
+  const [selectedAiCandidate, setSelectedAiCandidate] = useState(null);
+  const [selectedAiMatchJob, setSelectedAiMatchJob] = useState(null);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -300,13 +309,26 @@ const Candidates = () => {
 
               {/* Action Buttons */}
               <div className="mt-6 flex items-center justify-between border-t border-slate-100 pt-4">
-                <button
-                  onClick={() => handleOpenDetailModal(candidate.id)}
-                  className="flex items-center gap-1 text-xs font-semibold text-brand-600 hover:text-brand-700"
-                >
-                  <Eye className="h-3.5 w-3.5" />
-                  <span>Inspect Profile</span>
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => handleOpenDetailModal(candidate.id)}
+                    className="flex items-center gap-1 text-xs font-semibold text-slate-600 hover:text-slate-900"
+                  >
+                    <Eye className="h-3.5 w-3.5" />
+                    <span>Inspect</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      setSelectedAiCandidate(candidate);
+                      setIsAiSummaryModalOpen(true);
+                    }}
+                    className="flex items-center gap-1 text-xs font-semibold text-brand-700 bg-brand-50 hover:bg-brand-100 px-2.5 py-1 rounded-lg border border-brand-200 transition"
+                    title="Generate 3-Sentence AI Executive Summary"
+                  >
+                    <Sparkles className="h-3.5 w-3.5 text-brand-600" />
+                    <span>AI Summary</span>
+                  </button>
+                </div>
 
                 <div className="flex items-center gap-1.5">
                   <button
@@ -363,9 +385,23 @@ const Candidates = () => {
                   </span>
                 </div>
               </div>
-              <span className="rounded-full bg-brand-50 px-3 py-1 text-xs font-semibold text-brand-700 border border-brand-200">
-                {selectedCandidate.experienceYears} Years Experience
-              </span>
+              <div className="flex flex-col sm:flex-row items-end sm:items-center gap-2">
+                <span className="rounded-full bg-brand-50 px-3 py-1 text-xs font-semibold text-brand-700 border border-brand-200">
+                  {selectedCandidate.experienceYears} Years Experience
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedAiCandidate(selectedCandidate);
+                    setIsAiSummaryModalOpen(true);
+                  }}
+                  className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-brand-600 to-indigo-600 px-3 py-1 text-xs font-semibold text-white shadow-sm hover:from-brand-700 hover:to-indigo-700 transition"
+                  title="Generate 3-Sentence AI Executive Summary"
+                >
+                  <Sparkles className="h-3.5 w-3.5" />
+                  <span>AI Summary</span>
+                </button>
+              </div>
             </div>
 
             {/* Skills */}
@@ -418,9 +454,24 @@ const Candidates = () => {
                         <span className="font-bold text-slate-900">{app.job?.title}</span>
                         <span className="text-slate-400 ml-2">({app.job?.department})</span>
                       </div>
-                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-brand-50 text-brand-700 border border-brand-200">
-                        {app.status}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-brand-50 text-brand-700 border border-brand-200">
+                          {app.status}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedAiCandidate(selectedCandidate);
+                            setSelectedAiMatchJob(app.job);
+                            setIsAiMatchModalOpen(true);
+                          }}
+                          className="flex items-center gap-1 px-2.5 py-1 rounded-lg border border-brand-200 bg-brand-50 text-[11px] font-semibold text-brand-700 hover:bg-brand-100 transition"
+                          title="Evaluate Candidate against Job Offer"
+                        >
+                          <Sparkles className="h-3 w-3" />
+                          <span>AI Match</span>
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -563,6 +614,21 @@ const Candidates = () => {
           </div>
         </form>
       </Modal>
+
+      {/* AI Candidate Summary Modal (Feature 1) */}
+      <AiSummaryModal
+        isOpen={isAiSummaryModalOpen}
+        onClose={() => setIsAiSummaryModalOpen(false)}
+        candidate={selectedAiCandidate}
+      />
+
+      {/* AI Candidate-Job Match Modal (Feature 2) */}
+      <AiMatchModal
+        isOpen={isAiMatchModalOpen}
+        onClose={() => setIsAiMatchModalOpen(false)}
+        candidate={selectedAiCandidate}
+        job={selectedAiMatchJob}
+      />
     </div>
   );
 };
