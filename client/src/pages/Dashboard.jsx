@@ -1,7 +1,19 @@
 import React, { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import api from '../api/client';
-import { Briefcase, Users, GitPullRequest, Award, ArrowUpRight, Sparkles } from 'lucide-react';
+import StatusChart from '../components/StatusChart';
+import {
+  Briefcase,
+  Users,
+  GitPullRequest,
+  Award,
+  ArrowRight,
+  PlusCircle,
+  Sparkles,
+  Calendar,
+  Clock,
+} from 'lucide-react';
 
 const Dashboard = () => {
   const { user } = useAuth();
@@ -9,18 +21,18 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetchStats = async () => {
+    const fetchDashboard = async () => {
       try {
         const response = await api.get('/dashboard/stats');
         setStats(response.data.data);
       } catch (err) {
-        console.error('Failed to load dashboard metrics:', err);
+        console.error('Failed to fetch dashboard metrics:', err);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchStats();
+    fetchDashboard();
   }, []);
 
   const counters = stats?.counters || {
@@ -34,36 +46,43 @@ const Dashboard = () => {
     {
       label: 'Total Job Openings',
       value: counters.totalJobs,
-      sublabel: `${counters.openJobs} currently open`,
+      sublabel: `${counters.openJobs} active campaigns`,
       icon: Briefcase,
-      color: 'from-blue-600 to-indigo-600',
       bgColor: 'bg-blue-50 text-blue-700',
     },
     {
       label: 'Candidate Database',
       value: counters.totalCandidates,
-      sublabel: 'Profiles in system',
+      sublabel: 'Profiles in repository',
       icon: Users,
-      color: 'from-brand-600 to-purple-600',
       bgColor: 'bg-brand-50 text-brand-700',
     },
     {
       label: 'Active Applications',
       value: counters.totalApplications,
-      sublabel: 'Across all pipelines',
+      sublabel: 'Under review across stages',
       icon: GitPullRequest,
-      color: 'from-emerald-600 to-teal-600',
-      bgColor: 'bg-emerald-50 text-emerald-700',
+      bgColor: 'bg-indigo-50 text-indigo-700',
     },
     {
-      label: 'AI-Screened Offers',
+      label: 'Offer Stage',
       value: stats?.pipelineBreakdown?.OFFER || 0,
-      sublabel: 'Final offer stage',
+      sublabel: 'Final candidate offers',
       icon: Award,
-      color: 'from-amber-500 to-orange-500',
-      bgColor: 'bg-amber-50 text-amber-700',
+      bgColor: 'bg-emerald-50 text-emerald-700',
     },
   ];
+
+  const getStatusBadge = (status) => {
+    const styles = {
+      NEW: 'bg-blue-50 text-blue-700 border-blue-200',
+      SCREENING: 'bg-indigo-50 text-indigo-700 border-indigo-200',
+      INTERVIEW: 'bg-purple-50 text-purple-700 border-purple-200',
+      OFFER: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+      REJECTED: 'bg-slate-100 text-slate-600 border-slate-200',
+    };
+    return styles[status] || styles.NEW;
+  };
 
   return (
     <div className="space-y-8">
@@ -72,18 +91,35 @@ const Dashboard = () => {
         <div className="relative z-10 max-w-2xl">
           <div className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-xs font-semibold backdrop-blur-md mb-4 text-brand-200 border border-white/10">
             <Sparkles className="h-3.5 w-3.5 text-brand-300" />
-            TalentFlow Intelligence Hub
+            Recruitment Intelligence Dashboard
           </div>
           <h1 className="text-3xl font-extrabold tracking-tight">
             Welcome back, {user?.name}! 👋
           </h1>
           <p className="mt-2 text-sm text-slate-300 leading-relaxed">
-            Manage your recruitment campaigns, monitor application pipelines, and run privacy-preserving AI screenings powered by Claude.
+            Monitor recruitment pipeline throughput, candidate submissions, and trigger privacy-preserving Claude AI assessments.
           </p>
+
+          <div className="mt-6 flex flex-wrap gap-3">
+            <Link
+              to="/jobs"
+              className="inline-flex items-center gap-2 rounded-xl bg-brand-600 px-4 py-2 text-xs font-semibold text-white shadow-md shadow-brand-500/30 hover:bg-brand-500 transition"
+            >
+              <PlusCircle className="h-4 w-4" />
+              <span>Create Job Opening</span>
+            </Link>
+            <Link
+              to="/applications"
+              className="inline-flex items-center gap-2 rounded-xl bg-white/10 px-4 py-2 text-xs font-semibold text-white hover:bg-white/20 backdrop-blur-md transition border border-white/10"
+            >
+              <span>View Kanban Pipeline</span>
+              <ArrowRight className="h-4 w-4" />
+            </Link>
+          </div>
         </div>
       </div>
 
-      {/* KPI Stat Cards */}
+      {/* KPI Counters Grid */}
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
         {statCards.map((card, idx) => {
           const Icon = card.icon;
@@ -109,6 +145,59 @@ const Dashboard = () => {
             </div>
           );
         })}
+      </div>
+
+      {/* Main Grid: Status Chart + Recent Applications */}
+      <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
+        {/* Chart Column */}
+        <div className="lg:col-span-2">
+          <StatusChart breakdown={stats?.pipelineBreakdown || {}} />
+        </div>
+
+        {/* Recent Applications Sidebar List */}
+        <div className="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-sm flex flex-col">
+          <div className="flex items-center justify-between pb-4 border-b border-slate-100">
+            <div>
+              <h2 className="text-base font-bold text-slate-900">Recent Applications</h2>
+              <p className="text-xs text-slate-500">Latest candidate submissions</p>
+            </div>
+            <Link to="/applications" className="text-xs font-semibold text-brand-600 hover:underline">
+              View All
+            </Link>
+          </div>
+
+          <div className="mt-4 flex-1 space-y-3.5">
+            {(!stats?.recentApplications || stats.recentApplications.length === 0) ? (
+              <div className="flex flex-col items-center justify-center py-10 text-center text-xs text-slate-400">
+                <Clock className="h-8 w-8 mb-2 text-slate-300" />
+                <span>No recent submissions registered.</span>
+              </div>
+            ) : (
+              stats.recentApplications.map((app) => (
+                <div
+                  key={app.id}
+                  className="flex items-center justify-between p-3 rounded-xl border border-slate-100 bg-slate-50/50 hover:bg-slate-50 transition"
+                >
+                  <div className="truncate pr-3">
+                    <p className="text-xs font-bold text-slate-900 truncate">
+                      {app.candidate?.name || 'Applicant'}
+                    </p>
+                    <p className="text-[11px] text-slate-500 truncate">
+                      {app.job?.title || 'Job Opening'}
+                    </p>
+                  </div>
+                  <span
+                    className={`inline-block shrink-0 px-2.5 py-0.5 rounded-full text-[10px] font-semibold border ${getStatusBadge(
+                      app.status
+                    )}`}
+                  >
+                    {app.status}
+                  </span>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );
