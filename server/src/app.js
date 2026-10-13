@@ -1,6 +1,10 @@
 const express = require('express');
 const cors = require('cors');
 const authRoutes = require('./routes/authRoutes');
+const jobRoutes = require('./routes/jobRoutes');
+const candidateRoutes = require('./routes/candidateRoutes');
+const applicationRoutes = require('./routes/applicationRoutes');
+const dashboardRoutes = require('./routes/dashboardRoutes');
 const { errorHandler, notFoundHandler } = require('./middleware/errorMiddleware');
 
 const app = express();
@@ -28,6 +32,10 @@ app.get('/api/health', (req, res) => {
 
 // API Routes
 app.use('/api/auth', authRoutes);
+app.use('/api/jobs', jobRoutes);
+app.use('/api/candidates', candidateRoutes);
+app.use('/api/applications', applicationRoutes);
+app.use('/api/dashboard', dashboardRoutes);
 
 // 404 Handler for undefined routes
 app.use(notFoundHandler);
