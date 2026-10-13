@@ -1,6 +1,6 @@
 # TalentFlow - HR Recruitment Web Application with AI
 
-> **A University Mini-Project by Team 6**  
+> **A University Project by Eya Ezdine**  
 > An enterprise-grade recruitment management platform (CRUD + Pipeline) augmented with privacy-preserving, fault-tolerant Artificial Intelligence powered by Claude API.
 
 ---
@@ -84,18 +84,12 @@ flowchart LR
 
 ---
 
-## 4. Team Members & Roles
+## 4. Author & Responsibilities
 
-This project follows a strict **Single-Pusher Git Model** where **M1 (Integrator)** handles all commits and merges to ensure pristine commit history and attribution:
+This project is conceived, developed, and maintained independently:
 
-| Member | Role | Core Responsibilities | Target Defense Focus |
-|:---|:---|:---|:---|
-| **M1** (Eya Ezdine) | Project Lead & Integrator / DevOps | Monorepo setup, CI/CD, deployment, GitHub project board, code integration | Repository architecture, branch strategy, release management |
-| **M2** (Yassine Ben Ali) | Back-End Engineer (Auth & Users) | User authentication, bcrypt hashing, JWT issuance/verification, RBAC middleware | Auth lifecycle, token invalidation, role authorization security |
-| **M3** (Salma Trabelsi) | Back-End Engineer (Core CRUD) | Prisma schema, CRUD endpoints for Jobs, Candidates, Applications, filtering & pagination | Relational model, query optimization, Prisma migrations, pagination algorithms |
-| **M4** (Aziz Hammami) | AI Module Engineer | PII Anonymizer, Claude API client, prompt engineering, Zod AI output validation, resilience | Anonymization regex & token replacement, structured output validation, error fallback |
-| **M5** (Nour Dridi) | Front-End Engineer (Core & Layout) | React layout, navigation, auth forms (Login/Register), protected route guards, dashboard & charts | React Router tree, AuthContext state management, JWT persistence, Chart.js/Recharts |
-| **M6** (Mariem Gharbi) | Front-End Engineer (CRUD & AI UI) | CRUD interfaces, Kanban status pipeline, AI action cards, unit tests, technical report | Interactive state handling, optimistic UI updates, comprehensive test suites |
+- **Developer & Architect**: **Eya Ezdine** (`eyaezdine@gmail.com`)
+- **Roles Covered**: Full-stack Development (React Front-End, Express Back-End, SQLite/Prisma ORM, Claude AI Module, Testing, and DevOps/Deployment).
 
 ---
 
@@ -139,7 +133,7 @@ TalentFlow/
 │   └── package.json
 ├── docs/                       # Project Documentation & Artifacts
 │   ├── screenshots/            # 20 numbered screenshots required for grading
-│   ├── CONTRIBUTIONS.md        # Detailed student-to-file traceability matrix
+│   ├── CONTRIBUTIONS.md        # Feature tracking and execution matrix
 │   ├── GITHUB_ISSUES.md        # Issue tracking plan for project board
 │   └── report.md               # Complete technical report
 ├── .env.example
@@ -168,7 +162,7 @@ cd TalentFlow
 cp .env.example .env
 cp server/.env.example server/.env
 
-# Update server/.env with your valid Anthropic API key
+# Update server/.env with your Anthropic API key
 ```
 
 ---
