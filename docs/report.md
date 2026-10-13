@@ -65,6 +65,16 @@ graph TD
     API -->|Sanitized Prompt via HTTPS| LLM
 ```
 
+### 5.1 Front-End SPA Routing & Guards
+- **Public Routes**: `/login`, `/register` (redirect to `/dashboard` if token already stored).
+- **Protected Layout Shell**: Enforced by `<ProtectedRoute />` checking `isAuthenticated` from `AuthContext`:
+  - `/dashboard`: Metrics KPI cards & application status charts.
+  - `/jobs`: Job offers catalog and creation dialogs.
+  - `/candidates`: Candidate directory and CV inspection.
+  - `/applications`: 5-column Kanban recruitment pipeline.
+- **Axios Interceptors**: Automatically injects `Authorization: Bearer <token>` into outgoing requests and traps HTTP 401 to clear local session and redirect gracefully to login.
+
+
 ---
 
 ## 6. Technology Choices & Justification
