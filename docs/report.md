@@ -78,12 +78,78 @@ graph TD
 ---
 
 ## 7. Database Design (ER Diagram)
-*(Detailed in Phase 1 & 2)*
+
+### 7.1 Entity-Relationship Diagram
+```mermaid
+erDiagram
+    USER {
+        string id PK
+        string email UK
+        string password
+        string name
+        string role
+        datetime createdAt
+        datetime updatedAt
+    }
+
+    JOB {
+        string id PK
+        string title
+        string department
+        string location
+        string description
+        string requiredSkills
+        string status
+        datetime createdAt
+        datetime updatedAt
+    }
+
+    CANDIDATE {
+        string id PK
+        string name
+        string email UK
+        string phone
+        int experienceYears
+        string skills
+        string educationLevel
+        string cvText
+        datetime createdAt
+        datetime updatedAt
+    }
+
+    APPLICATION {
+        string id PK
+        string candidateId FK
+        string jobId FK
+        string status
+        string notes
+        datetime createdAt
+        datetime updatedAt
+    }
+
+    JOB ||--o{ APPLICATION : "receives"
+    CANDIDATE ||--o{ APPLICATION : "submits"
+```
+
+### 7.2 Table Descriptions
+- **`users`**: Manages recruitment staff accounts, with `role` distinguishing `ADMIN` (system configuration and user management) from `RECRUITER` (job and candidate management).
+- **`jobs`**: Tracks recruitment campaigns, status transitions (`DRAFT`, `OPEN`, `CLOSED`), and required technical skill sets.
+- **`candidates`**: Stores applicant resumes, years of experience, education levels, and full CV text for processing.
+- **`applications`**: Association table linking a Candidate with a Job. Enforces a compound unique constraint on `(candidateId, jobId)` and tracks recruitment pipeline stages (`NEW`, `SCREENING`, `INTERVIEW`, `OFFER`, `REJECTED`).
 
 ---
 
 ## 8. REST API Documentation
-*(Detailed in Phase 1 & 2)*
+
+### 8.1 Authentication Endpoints (Phase 1)
+
+| Method | Endpoint | Access / Auth | Request Body | Success Response | Status |
+|:---|:---|:---|:---|:---|:---|
+| `GET` | `/api/health` | Public | None | `{ status: "ok", service: "TalentFlow API" }` | 200 OK |
+| `POST` | `/api/auth/register` | Public | `{ name, email, password, role? }` | `{ message, user: { id, name, email, role }, token }` | 201 Created |
+| `POST` | `/api/auth/login` | Public | `{ email, password }` | `{ message, user: { id, name, email, role }, token }` | 200 OK |
+| `GET` | `/api/auth/me` | Bearer JWT | None | `{ user: { id, name, email, role } }` | 200 OK |
+
 
 ---
 
