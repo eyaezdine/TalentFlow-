@@ -5,6 +5,7 @@ const jobRoutes = require('./routes/jobRoutes');
 const candidateRoutes = require('./routes/candidateRoutes');
 const applicationRoutes = require('./routes/applicationRoutes');
 const dashboardRoutes = require('./routes/dashboardRoutes');
+const aiRoutes = require('./routes/aiRoutes');
 const { errorHandler, notFoundHandler } = require('./middleware/errorMiddleware');
 
 const app = express();
@@ -36,6 +37,7 @@ app.use('/api/jobs', jobRoutes);
 app.use('/api/candidates', candidateRoutes);
 app.use('/api/applications', applicationRoutes);
 app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/ai', aiRoutes);
 
 // 404 Handler for undefined routes
 app.use(notFoundHandler);

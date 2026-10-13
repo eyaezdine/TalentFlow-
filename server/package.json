@@ -14,6 +14,7 @@
     "lint": "echo \"Linting backend...\""
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.133.0",
     "@prisma/client": "^5.14.0",
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
