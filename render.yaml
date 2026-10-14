@@ -1,0 +1,28 @@
+# ====================================================
+# Render Infrastructure Blueprint for TalentFlow Monorepo
+# render.yaml
+# ====================================================
+
+services:
+  # Back-End REST API Service
+  - type: web
+    name: talentflow-api
+    env: node
+    plan: free
+    region: frankfurt
+    rootDir: server
+    buildCommand: npm install && npx prisma generate && npx prisma db push && npm run seed
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: DATABASE_URL
+        value: file:./prod.db
+      - key: JWT_SECRET
+        generateValue: true
+      - key: AI_MODEL
+        value: claude-3-5-sonnet-20241022
+      - key: ANTHROPIC_API_KEY
+        sync: false # Set securely in Render dashboard
