@@ -459,8 +459,87 @@ The project follows clean Git discipline:
 
 ---
 
-## 13. Cloud Deployment
-*(Detailed in Phase 7)*
+## 13. Cloud Deployment Architecture & Production Setup
+
+TalentFlow is engineered for cloud deployment following a modern decoupled architecture: the Express/Prisma backend is hosted on **Render** (or Railway), while the React Vite single-page application is deployed on **Vercel** (or Netlify).
+
+### 13.1 Production Architecture Diagram
+
+```
+[ User Browser ]
+       |
+       +---> [ Vercel / Netlify CDN ]  --> Serves React SPA (Static Assets, Tailwind)
+       |          |
+       |          +-- [ vercel.json / _redirects ] (SPA client-side route fallback)
+       |
+       +---> [ Render / Railway ]      --> Node.js + Express REST API
+                  |
+                  +-- Prisma ORM + SQLite (or Managed PostgreSQL)
+                  |
+                  +-- Anthropic Claude API (Outbound HTTPS with 15s AbortController)
+```
+
+---
+
+### 13.2 Back-End Deployment (Render / Railway)
+
+1. **Configuration Blueprint (`render.yaml`)**:
+   - The root [`render.yaml`](file:///c:/Users/rouis/.gemini/antigravity/scratch/TalentFlow/render.yaml) automatically provisions a Node web service.
+   - **Root Directory**: `server`
+   - **Build Command**: `npm install && npx prisma generate && npx prisma db push && npm run seed`
+   - **Start Command**: `npm start`
+2. **Production Environment Variables**:
+   - `PORT`: `10000` (auto-assigned by Render)
+   - `NODE_ENV`: `production`
+   - `DATABASE_URL`: `file:./prod.db`
+   - `JWT_SECRET`: High-entropy 32+ character secret string (generated securely)
+   - `AI_MODEL`: `claude-3-5-sonnet-20241022`
+   - `ANTHROPIC_API_KEY`: Secure API key from Anthropic Console (configured in Render Dashboard)
+
+---
+
+### 13.3 Front-End Deployment (Vercel / Netlify)
+
+1. **Vercel Blueprint ([`client/vercel.json`](file:///c:/Users/rouis/.gemini/antigravity/scratch/TalentFlow/client/vercel.json))**:
+   - Manages client-side SPA routing (`/(.*) -> /index.html`) to ensure deep routes like `/candidates` or `/applications` refresh without 404 errors.
+   - Reverse-proxies `/api/(.*)` to the deployed backend service.
+2. **Netlify Fallback ([`client/public/_redirects`](file:///c:/Users/rouis/.gemini/antigravity/scratch/TalentFlow/client/public/_redirects))**:
+   - Includes standard wildcard redirect rule `/* /index.html 200`.
+3. **Build & Output Settings**:
+   - **Root Directory**: `client`
+   - **Build Command**: `npm run build`
+   - **Output Directory**: `dist`
+   - **Environment Variable**: `VITE_API_URL=https://talentflow-api.onrender.com/api`
+
+---
+
+### 13.4 Automated Database Seeding (`npm run seed`)
+
+The application features a reproducible seed script ([`server/prisma/seed.js`](file:///c:/Users/rouis/.gemini/antigravity/scratch/TalentFlow/server/prisma/seed.js)) powered by `@faker-js/faker`:
+- **Demo Accounts**:
+  - `admin@talentflow.com` / `admin123` (Administrator role)
+  - `recruiter@talentflow.com` / `recruiter123` (Recruiter role)
+- **7 Job Requisitions** spanning Engineering, Infrastructure, Design, Data, and AI.
+- **12 Candidate Profiles** with rich CV texts containing raw contact PII for Rule R1 compliance demonstration.
+- **17 Applications** distributed across the 5 Kanban stages (`NEW`, `SCREENING`, `INTERVIEW`, `OFFER`, `REJECTED`).
+- **Execution Command**:
+  ```bash
+  cd server && npm run seed
+  ```
+
+---
+
+### 13.5 15-Minute Live Defense Script
+
+The defense presentation is documented in [`docs/DEMO_SCRIPT.md`](file:///c:/Users/rouis/.gemini/antigravity/scratch/TalentFlow/docs/DEMO_SCRIPT.md), providing a minute-by-minute schedule covering:
+- *00:00 - 02:00*: Problem statement & AI privacy ethics.
+- *02:00 - 04:00*: Architecture & Rules (R1–R5) overview.
+- *04:00 - 06:00*: Auth quick-fill & Executive Dashboard metrics.
+- *06:00 - 08:00*: Job offers & Candidate search/CV inspection.
+- *08:00 - 11:00*: AI Executive Summary, side-by-side Rule R1 audit inspector, and 0–100 fit match.
+- *11:00 - 13:00*: 5-column Kanban board & generating 5 calibrated interview questions with rubrics.
+- *13:00 - 14:00*: Automated test suite showcase (66 passing tests).
+- *14:00 - 15:00*: Conclusion & jury Q&A.
 
 ---
 

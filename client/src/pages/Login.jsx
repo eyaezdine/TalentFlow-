@@ -136,19 +136,19 @@ const Login = () => {
             <div className="grid grid-cols-2 gap-2">
               <button
                 type="button"
-                onClick={() => handleQuickFill('admin.crud@talentflow.local', 'password123')}
+                onClick={() => handleQuickFill('admin@talentflow.com', 'admin123')}
                 className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-100 text-left transition"
               >
                 <div className="font-semibold text-slate-800">Admin Demo</div>
-                <div className="text-[10px] text-slate-400 truncate">admin.crud@...</div>
+                <div className="text-[10px] text-slate-400 truncate">admin@talentflow.com</div>
               </button>
               <button
                 type="button"
-                onClick={() => handleQuickFill('recruiter.crud@talentflow.local', 'password123')}
+                onClick={() => handleQuickFill('recruiter@talentflow.com', 'recruiter123')}
                 className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-100 text-left transition"
               >
                 <div className="font-semibold text-slate-800">Recruiter Demo</div>
-                <div className="text-[10px] text-slate-400 truncate">recruiter.crud@...</div>
+                <div className="text-[10px] text-slate-400 truncate">recruiter@talentflow.com</div>
               </button>
             </div>
           </div>
