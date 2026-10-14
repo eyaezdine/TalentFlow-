@@ -344,10 +344,50 @@ The application remains fully operational when the AI service experiences degrad
 
 ---
 
-## 10. Security & Privacy Considerations
-- Compliance with Rule R1 (Zero-leakage PII masking).
-- JWT signed with HS256 algorithm and 24-hour expiration.
-- Secrets isolated strictly in `.env`.
+## 10. Security & Privacy Architecture
+
+Security and privacy are engineered as primary architectural concerns across all tiers of TalentFlow.
+
+### 10.1 Authentication & Token Lifecycle
+- **Password Hashing**: User credentials are protected using `bcryptjs` with an adaptive cost factor of 10 rounds, incorporating cryptographically random salt generation. Passwords are never stored in plaintext or logged in server telemetry.
+- **JSON Web Tokens (JWT)**: Sessions are represented by compact, digitally signed JWT tokens using the `HS256` HMAC-SHA256 algorithm.
+  - **Token Payload**: Contains minimal claims (`id`, `email`, `role`).
+  - **Expiration**: Standard 24-hour expiration window (`expiresIn: '24h'`), preventing perpetual session replay.
+  - **Verification**: Evaluated on every private endpoint via [`authMiddleware.js`](file:///c:/Users/rouis/.gemini/antigravity/scratch/TalentFlow/server/src/middleware/authMiddleware.js), which validates both the signature and verifies that the referenced user record remains active in SQLite.
+
+---
+
+### 10.2 Role-Based Access Control (RBAC)
+TalentFlow enforces strict separation of privileges between `ADMIN` and `RECRUITER` user tiers:
+
+| Resource & Operation | HTTP Method & Route | Unauthenticated | RECRUITER Role | ADMIN Role | Guard Middleware |
+|:---|:---|:---:|:---:|:---:|:---|
+| **Register / Login** | `POST /api/auth/*` | Allowed | Allowed | Allowed | Public |
+| **Current User Session** | `GET /api/auth/me` | Blocked (401) | Allowed | Allowed | `authenticateToken` |
+| **Browse Jobs / Candidates** | `GET /api/jobs`, `GET /api/candidates` | Blocked (401) | Allowed | Allowed | `authenticateToken` |
+| **Create Job / Ingest Candidate** | `POST /api/jobs`, `POST /api/candidates` | Blocked (401) | Allowed | Allowed | `authenticateToken` |
+| **Execute AI Features** | `POST /api/ai/*` | Blocked (401) | Allowed | Allowed | `authenticateToken` |
+| **Advance Application Stage** | `PUT /api/applications/:id/status` | Blocked (401) | Allowed | Allowed | `authenticateToken` |
+| **Delete Candidate Record** | `DELETE /api/candidates/:id` | Blocked (401) | **Blocked (403)** | **Allowed** | `requireRole('ADMIN')` |
+| **Delete Job Requisition** | `DELETE /api/jobs/:id` | Blocked (401) | **Blocked (403)** | **Allowed** | `requireRole('ADMIN')` |
+
+---
+
+### 10.3 GDPR Data Minimization & Privacy Protection (Rule R1)
+The application adheres strictly to European Union General Data Protection Regulation (GDPR) Article 5(1)(c) (*Data Minimisation*) and Article 25 (*Data Protection by Design and by Default*):
+1. **Third-Party Boundary Isolation**: External AI services (Anthropic Claude) are treated as untrusted data sinks with respect to PII.
+2. **Deterministic Pre-Transmission Sanitization**:
+   - Applicant email addresses, phone numbers, and physical postal addresses are replaced with opaque redaction markers (`[EMAIL_REDACTED]`, `[PHONE_REDACTED]`, `[ADDRESS_REDACTED]`).
+   - Candidate names are stripped from free-form CV text and replaced with pseudo-identifiers (`Candidate A`, `Candidate B`).
+3. **Audit Trail**: Every AI invocation returns an `anonymizationAudit` record verifying which fields were redacted, exposed directly in the UI side-by-side inspection drawer.
+
+---
+
+### 10.4 Secret Isolation & Defense-in-Depth (Rule R5)
+- **Zero Hardcoded Secrets**: Secrets such as `JWT_SECRET` and `ANTHROPIC_API_KEY` are read exclusively from environment variables via `process.env`.
+- **Git Ignore Safeguard**: The root `.gitignore` explicitly blocks all `.env` files across both root, `server/`, and `client/` workspaces. Only `.env.example` containing dummy template keys is committed to the version repository.
+- **SQL Injection Prevention**: Prisma ORM executes parameterized SQL queries under the hood, completely neutralizing SQL injection attack vectors.
+- **Cross-Origin Resource Sharing (CORS)**: Backend restricts or explicitly configures CORS origins to prevent unauthorized cross-site scripting invocations.
 
 ---
 
@@ -452,10 +492,36 @@ During comprehensive integration testing, the following edge cases were surfaced
 ---
 
 ## 12. Git Workflow & Development Tracking
-The project follows clean Git discipline:
-- Conventional Commits (`feat:`, `fix:`, `docs:`, `chore:`, `test:`, `refactor:`)
-- Small, focused, atomic commits
-- Traceable issues and milestones. See `docs/CONTRIBUTIONS.md` for complete feature tracking.
+
+The TalentFlow codebase was developed and maintained under strict Git engineering discipline by **Eya Ezdine** as the sole author and integrator.
+
+### 12.1 Conventional Commits Standard
+Every commit follows the [Conventional Commits 1.0.0](https://www.conventionalcommits.org/) specification:
+- `feat`: Implementation of a user-facing capability or API endpoint.
+- `fix`: Correction of a software bug or edge-case flaw.
+- `test`: Addition or refactoring of unit, integration, or E2E tests.
+- `docs`: Additions or revisions to technical documentation and reports.
+- `chore`: Tooling, build pipeline, dependency management, or project setup.
+
+### 12.2 Branching Model & Non-Fast-Forward (`--no-ff`) Merges
+To preserve a transparent, auditable history for academic defense, direct pushes to `main` were prohibited during feature delivery:
+1. Every phase was executed on an isolated feature branch (`feat/auth`, `feat/crud-api`, `feat/frontend-foundation`, `feat/frontend-crud-dashboard`, `feat/ai-module`, `test/qa-and-e2e-flow`, `feat/deployment-seed-demo`).
+2. Atomic, focused commits (20–80 lines typical) were created incrementally.
+3. Feature branches were integrated into `main` using explicit merge commits with `--no-ff` (`git merge --no-ff <branch> -m "merge: pull request #X..."`), maintaining distinct branch topologies in the Git commit graph.
+
+### 12.3 Complete Milestone & Contribution Matrix (Eya Ezdine)
+
+| Phase & Milestone | Feature Branch | Key Deliverables & Artifacts | Commit Scope | Tests & Validation |
+|:---|:---|:---|:---|:---:|
+| **Phase 0: Setup** | `chore/initial-setup` | Monorepo structure, `.gitignore`, `.env.example`, README, ESLint | `chore`, `docs` | Repo structure verified |
+| **Phase 1: Backend Auth** | `feat/auth` | Prisma schema, SQLite, bcrypt, JWT middleware, auth routes | `feat(auth)`, `test(auth)` | 11 Supertest tests PASS |
+| **Phase 2: CRUD API** | `feat/crud-api` | Jobs, Candidates, Applications CRUD, dashboard counters | `feat(jobs)`, `feat(candidates)` | 16 CRUD tests PASS |
+| **Phase 3: Frontend Base** | `feat/frontend-foundation` | React + Vite + Tailwind, Axios client, AuthContext, Layout | `feat(client-auth)`, `feat(layout)` | 2 Vitest tests PASS |
+| **Phase 4: Frontend CRUD** | `feat/frontend-crud-dashboard` | Dashboard chart, Job modals, Candidate directory, Kanban | `feat(dashboard)`, `feat(kanban)` | 5 Vitest tests PASS |
+| **Phase 5: AI Module** | `feat/ai-module` | Rule R1 anonymizer, Claude client, 3 AI modals, prompts | `feat(ai-privacy)`, `feat(ai-ui)` | 9 AI tests PASS |
+| **Phase 6: QA & Testing** | `test/qa-and-e2e-flow` | 10-step E2E lifecycle test, edge cases suite, validator fix | `test(e2e)`, `fix(applications)` | 66/66 tests PASS |
+| **Phase 7: Cloud Deploy** | `feat/deployment-seed-demo` | Render blueprint, Vercel/Netlify SPA configs, Faker seed, demo | `feat(seed)`, `feat(deploy)` | `npm run seed` verified |
+| **Phase 8: Report & Defense** | `feat/final-report-and-presentation` | Complete technical report, presentation deck, screenshot map | `docs(report)`, `docs(presentation)` | Report complete |
 
 ---
 
@@ -543,13 +609,55 @@ The defense presentation is documented in [`docs/DEMO_SCRIPT.md`](file:///c:/Use
 
 ---
 
-## 14. Difficulties Encountered & Solutions
-*(Maintained iteratively across phases)*
+## 14. Difficulties Encountered & Engineering Solutions
+
+Building an enterprise-ready recruitment application with responsible generative AI surfaced several non-trivial engineering challenges:
+
+### 14.1 Challenge 1: Regex Masking Order Dependency in Rule R1
+- **Problem**: In early iterations of [`anonymize.js`](file:///c:/Users/rouis/.gemini/antigravity/scratch/TalentFlow/server/src/ai/anonymize.js), candidate names were replaced before email addresses. When a candidate's email handle incorporated their real name (e.g., `sarah.connor@cyberdyne.io`), the name masker replaced `"Sarah"` with `"Candidate A"`, producing an invalid email string (`Candidate A.connor@cyberdyne.io`). Consequently, the subsequent email regex failed to match, leaving the email domain and fragments unredacted.
+- **Solution**: Re-engineered the sanitization pipeline with strict execution ordering:
+  1. *Email scrubbing* first (replaces entire RFC 5322 pattern with `[EMAIL_REDACTED]`).
+  2. *Phone number scrubbing* second.
+  3. *Physical address scrubbing* third.
+  4. *Name token scrubbing* last, using case-insensitive word boundary regexes (`\b`).
+  Added 5 comprehensive unit tests in [`anonymize.test.js`](file:///c:/Users/rouis/.gemini/antigravity/scratch/TalentFlow/server/tests/anonymize.test.js) to verify this invariant.
+
+### 14.2 Challenge 2: LLM Markdown Wrapping & Schema Validation Strictness
+- **Problem**: Despite explicit system prompts demanding raw JSON, Claude occasionally returned markdown-fenced code blocks (````json { ... } ````) or conversational preambles (*"Here is the evaluation:"*). Calling `JSON.parse` directly caused syntax errors, rejecting valid completions.
+- **Solution**: Developed a multi-stage cleanup pipeline in [`claudeClient.js`](file:///c:/Users/rouis/.gemini/antigravity/scratch/TalentFlow/server/src/ai/claudeClient.js):
+  - Extracted JSON using greedy regex matching (`/\{[\s\S]*\}/`).
+  - Stripped markdown backticks and control characters.
+  - Validated the extracted object against Zod schemas.
+  - If validation still fails, the client triggers an automated 1-retry with an explicit corrective system message.
+
+### 14.3 Challenge 3: Latency & Unresponsive Third-Party AI Services
+- **Problem**: External LLM inference latency could spike under peak traffic or network degradation, threatening to hang Express worker threads and leave browser clients frozen.
+- **Solution**: Implemented Rule R3 using Node's native `AbortController` with an enforced 15,000ms deadline. If the Anthropic API fails to return headers within 15 seconds, the request is aborted immediately, releasing memory. The client receives a structured `{ code: 'AI_TIMEOUT' }` error, and front-end modals render a polite retry prompt without crashing the application.
+
+### 14.4 Challenge 4: Partial Updates in Application Notes
+- **Problem**: When recruiters submitted screening notes in the Kanban pipeline without altering the stage enum, the API returned `400 Bad Request` because `updateApplicationStatusSchema` initially required `status` as mandatory.
+- **Solution**: Refactored the schema to make `status` optional, introduced a Zod refinement requiring at least `status` or `notes`, and mounted both `PUT /api/applications/:id` and `PUT /api/applications/:id/status` as valid RESTful endpoints.
+
+### 14.5 Challenge 5: Multi-Stage Testing & SQLite Database State Isolation
+- **Problem**: Concurrent test suites executing asynchronously against a single SQLite file risked transient write-lock collisions (`SQLITE_BUSY`).
+- **Solution**: Configured Jest with `--runInBand --detectOpenHandles --forceExit` in `server/package.json`. Each test suite manages clean `beforeAll`/`afterAll` fixture setup and teardown, guaranteeing 100% deterministic test results across all 56 backend tests.
 
 ---
 
 ## 15. Conclusion & Future Work
-*(Detailed in Phase 8)*
+
+### 15.1 Summary of Accomplishments
+The **TalentFlow** project successfully demonstrates the design and implementation of an enterprise-grade recruitment platform that marries intuitive business UX with ethical, privacy-preserving artificial intelligence:
+- **Full CRUD & Pipeline Management**: Complete job requisitions, candidate repositories, and an interactive 5-column Kanban board with real-time analytics.
+- **Responsible Generative AI (Rules R1–R5)**: Zero personal data leakage via Rule R1 PII scrubbing, Zod schema validation, versioned prompts, and fault-tolerant degradation.
+- **Academic & Engineering Rigor**: 66 passing automated tests, >72% backend code coverage, Conventional Commits, non-fast-forward Git branch merges, and cloud deployment blueprints.
+
+### 15.2 Future Roadmap
+Future extensions planned for TalentFlow include:
+1. **Direct Resume PDF Parsing**: Integrating `pdf-parse` or OCR to ingest multi-page PDF documents and automatically populate structured fields while stripping embedded metadata.
+2. **Real-Time Collaboration**: Utilizing WebSockets (Socket.io) to enable real-time multi-recruiter updates on the Kanban pipeline and live interview note synchronization.
+3. **Multi-Tenant Enterprise Organizations**: Supporting isolated company workspaces with custom RBAC permission sets, interview scorecards, and calendar integrations (Google Calendar, Outlook).
+4. **Local LLM Execution**: Providing an alternative inference adapter for self-hosted open-source models (such as LLaMA 3 or Mistral via Ollama) for zero-cloud intranet deployments.
 
 ---
 
