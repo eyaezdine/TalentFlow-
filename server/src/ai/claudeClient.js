@@ -20,30 +20,96 @@ const cleanJsonString = (raw) => {
 };
 
 /**
- * Deterministic fallback generator for development/demo when no real Anthropic key is active
+ * Dynamic fallback generator for development/demo when no real Anthropic key is active.
+ * Extracts the candidate's actual qualifications from promptText to produce unique,
+ * personalized assessments tailored to the specific candidate and job.
  */
-const generateSimulatedResponse = (feature, promptText) => {
+const generateSimulatedResponse = (feature, promptText = '') => {
+  // Extract candidate skills from prompt
+  const skillsMatch = promptText.match(/Technical Skills:\s*([^\n\r]+)/i);
+  const rawSkills = skillsMatch ? skillsMatch[1] : '';
+  const skills = rawSkills
+    ? rawSkills.split(',').map((s) => s.trim()).filter(Boolean)
+    : ['Software Engineering', 'System Architecture', 'Agile'];
+
+  // Extract years of experience
+  const expMatch = promptText.match(/Years of Professional Experience:\s*(\d+)/i);
+  const expYears = expMatch ? parseInt(expMatch[1], 10) : 3;
+
+  // Extract education level
+  const eduMatch = promptText.match(/Education Level:\s*([^\n\r]+)/i);
+  const education = eduMatch ? eduMatch[1].trim() : "Bachelor's Degree";
+
+  // Extract job info if matching or questions
+  const jobTitleMatch = promptText.match(/(?:Target Job Title|Job Title):\s*([^\n\r]+)/i);
+  const jobTitle = jobTitleMatch ? jobTitleMatch[1].trim() : 'Software Engineer';
+
+  const jobSkillsMatch = promptText.match(/Required Skills:\s*([^\n\r]+)/i);
+  const rawJobSkills = jobSkillsMatch ? jobSkillsMatch[1] : '';
+  const jobSkills = rawJobSkills
+    ? rawJobSkills.split(',').map((s) => s.trim()).filter(Boolean)
+    : [];
+
+  const topSkills = skills.slice(0, 4);
+  const primarySkill = topSkills[0] || 'Modern Engineering';
+  const secondarySkill = topSkills[1] || 'System Architecture';
+
   if (feature === 'candidate_summary') {
+    const s1 = expYears > 5
+      ? `Senior engineering profile offering ${expYears} years of progressive experience with strong specialization in ${primarySkill} and ${secondarySkill}.`
+      : `Promising software engineer with ${expYears} years of practical experience focusing primarily on ${primarySkill} and ${secondarySkill}.`;
+    const s2 = `Demonstrates consistent delivery across modern web systems, database design, and collaborative development environments.`;
+    const s3 = `Holds a ${education} and exhibits the technical aptitude to make an immediate impact on core engineering objectives.`;
+
+    const keywords = Array.from(new Set([...topSkills, primarySkill, secondarySkill, 'System Design', 'Agile Delivery'])).slice(0, 6);
+
     return {
-      summary:
-        'Demonstrates a solid technical foundation with proven experience delivering full-stack web architectures. Exhibits proficiency across core frameworks, database management, and asynchronous system workflows. Well-positioned to deliver immediate impact within high-growth engineering teams.',
-      keywords: ['Full-Stack Engineering', 'System Architecture', 'Database Optimization', 'Modern Web Frameworks', 'Agile Collaboration'],
+      summary: `${s1} ${s2} ${s3}`,
+      keywords,
     };
   }
 
   if (feature === 'candidate_job_matching') {
+    // Calculate realistic dynamic score based on skill overlap
+    const candidateSkillsLower = skills.map((s) => s.toLowerCase());
+    const matchedSkills = jobSkills.filter((js) =>
+      candidateSkillsLower.some((cs) => cs.includes(js.toLowerCase()) || js.toLowerCase().includes(cs))
+    );
+    const missingSkills = jobSkills.filter(
+      (js) => !candidateSkillsLower.some((cs) => cs.includes(js.toLowerCase()) || js.toLowerCase().includes(cs))
+    );
+
+    const baseScore = jobSkills.length > 0
+      ? Math.min(95, Math.max(55, Math.round((matchedSkills.length / jobSkills.length) * 100)))
+      : Math.min(92, 70 + expYears * 3);
+
+    const strengths = matchedSkills.length > 0
+      ? [
+          `Strong demonstrable background in ${matchedSkills.slice(0, 3).join(', ')} directly addressing role requirements.`,
+          `${expYears} years of verified industry experience backed by a ${education}.`,
+        ]
+      : [
+          `Solid foundation in ${primarySkill} and related web application patterns.`,
+          `${expYears} years of hands-on experience and good problem-solving foundation.`,
+        ];
+
+    const gaps = missingSkills.length > 0
+      ? [
+          `Less declared production exposure to ${missingSkills.slice(0, 2).join(', ')}, which should be probed in technical rounds.`,
+        ]
+      : [
+          `No critical skill gaps identified against declared prerequisites for ${jobTitle}.`,
+        ];
+
+    const recommendation = baseScore >= 75
+      ? `Strong fit for ${jobTitle} with ${baseScore}% requirement coverage. Recommended to schedule immediate technical interview.`
+      : `Moderate fit for ${jobTitle} (${baseScore}%). Recommended for exploratory technical screen focusing on skill gap areas.`;
+
     return {
-      score: 88,
-      strengths: [
-        'Direct alignment between declared skills and job requirements',
-        'Demonstrated competence in modern web frameworks and backend REST APIs',
-        'Relevant educational background and engineering fundamentals',
-      ],
-      gaps: [
-        'Cloud deployment pipeline and containerization experience should be verified during interview',
-      ],
-      recommendation:
-        'Strong candidate matching the job profile. Recommended to proceed to technical interview stage.',
+      score: baseScore,
+      strengths,
+      gaps,
+      recommendation,
     };
   }
 
@@ -51,34 +117,29 @@ const generateSimulatedResponse = (feature, promptText) => {
     return {
       questions: [
         {
-          question:
-            'How have you architected and scaled RESTful APIs to handle high concurrent throughput and data persistence?',
-          category: 'Technical Stack',
-          rationale: 'Evaluates backend engineering depth aligned with job specifications.',
+          question: `How have you leveraged ${primarySkill} in your past projects to architect resilient, scalable systems?`,
+          category: 'Technical Architecture',
+          rationale: `Directly assesses deep hands-on expertise in the candidate's primary domain of ${primarySkill}.`,
         },
         {
-          question:
-            'Can you describe a complex production bug you diagnosed and resolved under tight deadlines?',
+          question: `Can you walk us through a challenging debugging incident involving ${secondarySkill} or distributed data stores?`,
           category: 'Problem Solving',
-          rationale: 'Assesses debugging methodology and technical resilience.',
+          rationale: `Evaluates systematic troubleshooting methodology and technical composure under pressure.`,
         },
         {
-          question:
-            'What strategies do you employ when learning and integrating an unfamiliar library or infrastructure tool?',
-          category: 'Competency Gap Probe',
-          rationale: 'Probes candidate adaptability for skills not explicitly highlighted in their CV.',
+          question: `What approach do you take when integrating new tools or requirements into a production ${jobTitle} workflow?`,
+          category: 'Adaptability & Growth',
+          rationale: `Probes speed of learning and engineering agility for requirements beyond core competencies.`,
         },
         {
-          question:
-            'How would you design a database schema for an entity relationship requiring strict data integrity and cascading updates?',
-          category: 'System Design',
-          rationale: 'Tests relational modeling and architectural design capabilities.',
+          question: `How do you ensure data integrity, schema validation, and secure authentication across client-server boundaries?`,
+          category: 'System Design & Security',
+          rationale: `Tests security awareness, API contract discipline, and foundational system design standards.`,
         },
         {
-          question:
-            'Describe a situation where you had a technical disagreement with a peer or team lead. How did you arrive at consensus?',
+          question: `Describe a scenario where you collaborated with cross-functional stakeholders to deliver an ambitious engineering milestone.`,
           category: 'Behavioral & Leadership',
-          rationale: 'Evaluates communication, engineering culture fit, and collaborative problem-solving.',
+          rationale: `Validates communication efficacy, teamwork ethic, and alignment with modern agile practices.`,
         },
       ],
     };
