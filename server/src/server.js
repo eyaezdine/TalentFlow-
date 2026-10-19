@@ -14,8 +14,10 @@ const checkEnvironment = () => {
     console.warn('[SECURITY WARNING] JWT_SECRET is not set. Using default fallback. Set this in production!');
   }
 
-  // Rule R3: Detect Anthropic API Key presence at startup with clear messaging
-  if (!process.env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_API_KEY === 'your_anthropic_api_key_here') {
+  // Rule R3: Detect Anthropic or Gemini API Key presence at startup with clear messaging
+  if (process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY !== 'mock-key-development') {
+    console.log(`[AI READY] Google Gemini active with model: ${process.env.GEMINI_MODEL || 'gemini-3.1-flash-lite'}`);
+  } else if (!process.env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_API_KEY === 'your_anthropic_api_key_here') {
     console.warn('[AI WARNING] ANTHROPIC_API_KEY is not configured in .env.');
     console.warn('[AI WARNING] AI features will operate in simulated or disabled mode until a valid key is provided.');
   } else {

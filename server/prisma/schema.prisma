@@ -37,6 +37,7 @@ model Job {
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
   applications   Application[]
+  interviews     Interview[]
 
   @@map("jobs")
 }
@@ -54,6 +55,7 @@ model Candidate {
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
   applications    Application[]
+  interviews      Interview[]
 
   @@map("candidates")
 }
@@ -73,4 +75,21 @@ model Application {
 
   @@unique([candidateId, jobId])
   @@map("applications")
+}
+
+// Interview Model (Linking Candidate <-> Job Offer for an interview)
+model Interview {
+  id          String    @id @default(uuid())
+  candidateId String
+  jobId       String
+  date        DateTime
+  mode        String    // "in-person" | "video"
+  status      String    @default("planned") // "planned" | "completed" | "cancelled"
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  candidate   Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  job         Job       @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@map("interviews")
 }

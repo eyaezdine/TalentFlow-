@@ -2,7 +2,7 @@ const Anthropic = require('@anthropic-ai/sdk');
 const { ZodError } = require('zod');
 
 const DEFAULT_MODEL = process.env.AI_MODEL || 'claude-3-5-sonnet-20241022';
-const TIMEOUT_MS = parseInt(process.env.AI_TIMEOUT_MS) || 15000;
+const TIMEOUT_MS = parseInt(process.env.AI_TIMEOUT_MS) || 60000;
 
 /**
  * Extracts and cleans JSON string from LLM completion text
@@ -149,7 +149,8 @@ const generateSimulatedResponse = (feature, promptText = '') => {
 };
 
 /**
- * Execute Claude completion with AbortController 15s timeout and Rule R2 1-time retry
+ * Execute LLM completion with AbortController 15s timeout and Rule R2 1-time retry
+ * Supports Google Gemini (via free API key) and Anthropic Claude
  *
  * @param {object} params
  * @param {string} params.systemPrompt
@@ -166,14 +167,129 @@ const executeClaudeCompletion = async ({
   featureName,
   temperature = 0.2,
 }) => {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
+  const geminiApiKey = process.env.GEMINI_API_KEY;
+  const anthropicApiKey = process.env.ANTHROPIC_API_KEY;
 
-  // Rule R3: Detect missing API key
+  // 1. If running automated CI/Jest tests without FORCE_LIVE_AI, keep tests deterministic and instantaneous
+  if (process.env.NODE_ENV === 'test' && !process.env.FORCE_LIVE_AI) {
+    const simulated = generateSimulatedResponse(featureName, userPrompt);
+    return outputSchema.parse(simulated);
+  }
+
+  // 2. Check if Google Gemini live API is configured
+  const useGemini = Boolean(
+    geminiApiKey &&
+    geminiApiKey !== 'mock-key-development' &&
+    !geminiApiKey.includes('your_')
+  );
+
+  if (useGemini) {
+    const geminiModel = process.env.GEMINI_MODEL || 'gemini-3.8-flash';
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent?key=${geminiApiKey}`;
+
+    console.log(`[AI LIVE CALL] Sending live request to Google Gemini (${geminiModel}) for ${featureName}`);
+
+    const callGeminiWithTimeout = async (userContent) => {
+      const controller = new AbortController();
+      const timeoutHandle = setTimeout(() => {
+        controller.abort();
+      }, TIMEOUT_MS);
+
+      try {
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            systemInstruction: {
+              parts: [{ text: systemPrompt }],
+            },
+            contents: [
+              {
+                role: 'user',
+                parts: [{ text: userContent }],
+              },
+            ],
+            generationConfig: {
+              temperature,
+              responseMimeType: 'application/json',
+            },
+          }),
+          signal: controller.signal,
+        });
+
+        clearTimeout(timeoutHandle);
+
+        if (!response.ok) {
+          const errBody = await response.json().catch(() => ({}));
+          const errMsg = errBody.error?.message || response.statusText;
+
+          if (response.status === 429) {
+            const rateError = new Error('Gemini API rate limit exceeded. Please try again shortly.');
+            rateError.code = 'AI_QUOTA_EXCEEDED';
+            rateError.statusCode = 429;
+            throw rateError;
+          }
+
+          const apiError = new Error(`Gemini API error (${response.status}): ${errMsg}`);
+          apiError.code = 'AI_NETWORK_ERROR';
+          apiError.statusCode = 502;
+          throw apiError;
+        }
+
+        const data = await response.json();
+        return data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+      } catch (err) {
+        clearTimeout(timeoutHandle);
+
+        if (err.name === 'AbortError' || controller.signal?.aborted) {
+          const timeoutError = new Error(`AI request timed out after ${TIMEOUT_MS / 1000} seconds.`);
+          timeoutError.code = 'AI_TIMEOUT';
+          timeoutError.statusCode = 504;
+          throw timeoutError;
+        }
+
+        throw err;
+      }
+    };
+
+    // Attempt 1: Call Gemini API
+    let rawText = await callGeminiWithTimeout(userPrompt);
+
+    // Rule R2: Parse and validate with Zod; Retry ONCE on invalid JSON
+    try {
+      const cleaned = cleanJsonString(rawText);
+      const parsed = JSON.parse(cleaned);
+      const validated = outputSchema.parse(parsed);
+      return validated;
+    } catch (initialError) {
+      console.warn(`[RULE R2 RETRY] Attempt 1 produced invalid JSON output. Retrying once... Error: ${initialError.message}`);
+
+      const correctivePrompt = `${userPrompt}\n\nIMPORTANT: Your previous output failed schema validation: ${initialError.message}. You must reply STRICTLY with raw JSON complying with the requested schema.`;
+
+      try {
+        const retryRawText = await callGeminiWithTimeout(correctivePrompt);
+        const retryCleaned = cleanJsonString(retryRawText);
+        const retryParsed = JSON.parse(retryCleaned);
+        const retryValidated = outputSchema.parse(retryParsed);
+        return retryValidated;
+      } catch (retryError) {
+        const finalError = new Error(
+          `AI returned malformed or non-compliant output after retry: ${retryError.message}`
+        );
+        finalError.code = 'AI_INVALID_OUTPUT';
+        finalError.statusCode = 502;
+        throw finalError;
+      }
+    }
+  }
+
+  // 2. Fallback to Anthropic Claude or Dev Simulation
+  const apiKey = anthropicApiKey;
   const isKeyMissing = !apiKey || apiKey === 'your_anthropic_api_key_here';
   const isMockKey = apiKey === 'mock-key-development';
 
   if (isKeyMissing) {
-    const error = new Error('Anthropic API key is not configured. Please configure ANTHROPIC_API_KEY in server/.env.');
+    const error = new Error('No AI API key is configured. Please configure GEMINI_API_KEY or ANTHROPIC_API_KEY in server/.env.');
     error.code = 'AI_CONFIG_ERROR';
     error.statusCode = 503;
     throw error;
@@ -284,3 +400,4 @@ module.exports = {
   cleanJsonString,
   generateSimulatedResponse,
 };
+

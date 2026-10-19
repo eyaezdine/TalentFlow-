@@ -5,6 +5,7 @@ import {
   Briefcase,
   Users,
   GitPullRequest,
+  Calendar,
   Sparkles,
   Layers,
 } from 'lucide-react';
@@ -33,6 +34,12 @@ const navItems = [
     path: '/applications',
     icon: GitPullRequest,
     badge: 'Kanban',
+  },
+  {
+    name: 'Interviews',
+    path: '/interviews',
+    icon: Calendar,
+    badge: 'New',
   },
 ];
 
