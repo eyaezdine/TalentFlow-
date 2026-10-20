@@ -131,6 +131,30 @@ const generateSimulatedResponse = (feature, promptText = '') => {
     };
   }
 
+  if (feature === 'cv_parsing') {
+    const emailMatch = promptText.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
+    const email = emailMatch ? emailMatch[0] : 'candidate@example.com';
+
+    const phoneMatch = promptText.match(/(?:\+?\d{1,4}[-.\s]?)?\(?\d{2,4}\)?[-.\s]?\d{3,4}[-.\s]?\d{3,4}/);
+    const phone = phoneMatch ? phoneMatch[0].trim() : '+1-555-0100';
+
+    const cleanLines = promptText
+      .split(/\r?\n/)
+      .map((l) => l.trim())
+      .filter((l) => l && !l.startsWith('-') && !l.startsWith('Raw') && !l.startsWith('Parse'));
+    const detectedName = cleanLines.length > 0 && cleanLines[0].length < 40 ? cleanLines[0] : 'Alex Morgan';
+
+    return {
+      name: detectedName,
+      email,
+      phone,
+      experienceYears: expYears || 4,
+      skills: topSkills.length > 0 ? topSkills.join(', ') : 'JavaScript, React, Node.js, SQL',
+      educationLevel: education || "Bachelor's Degree",
+      summary: `${detectedName} is a dedicated professional with ${expYears || 4} years of experience specializing in software delivery and system design.`,
+    };
+  }
+
   throw new Error(`Unknown feature for simulation: ${feature}`);
 };
 

@@ -21,6 +21,7 @@ import {
   Loader2,
   CheckCircle2,
   Sparkles,
+  UploadCloud,
 } from 'lucide-react';
 
 const Candidates = () => {
@@ -56,6 +57,12 @@ const Candidates = () => {
   const [formError, setFormError] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
+
+  // CV PDF Upload & AI Auto-fill State (Feature by Nour)
+  const [cvUploading, setCvUploading] = useState(false);
+  const [cvUploadSuccess, setCvUploadSuccess] = useState('');
+  const [cvUploadError, setCvUploadError] = useState('');
+  const [dragActive, setDragActive] = useState(false);
 
   const fetchCandidates = async () => {
     try {
@@ -98,7 +105,51 @@ const Candidates = () => {
       cvText: '',
     });
     setFormError('');
+    setCvUploadSuccess('');
+    setCvUploadError('');
+    setCvUploading(false);
     setIsFormModalOpen(true);
+  };
+
+  const handleCvUpload = async (file) => {
+    if (!file) return;
+    if (file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')) {
+      setCvUploadError('Please select a valid PDF file (.pdf).');
+      return;
+    }
+
+    setCvUploading(true);
+    setCvUploadError('');
+    setCvUploadSuccess('');
+
+    try {
+      const data = new FormData();
+      data.append('cv', file);
+
+      const response = await api.post('/ai/parse-cv', data, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+
+      const parsed = response.data.data;
+      setFormData((prev) => ({
+        ...prev,
+        name: parsed.name || prev.name,
+        email: parsed.email || prev.email,
+        phone: parsed.phone || prev.phone,
+        experienceYears: parsed.experienceYears !== undefined ? parsed.experienceYears : prev.experienceYears,
+        skills: parsed.skills || prev.skills,
+        educationLevel: parsed.educationLevel || prev.educationLevel,
+        cvText: parsed.cvText || prev.cvText,
+      }));
+
+      setCvUploadSuccess(`Extracted profile from "${file.name}" and auto-filled fields below!`);
+    } catch (err) {
+      setCvUploadError(err.message || 'Failed to parse CV PDF. Please try again.');
+    } finally {
+      setCvUploading(false);
+    }
   };
 
   const handleOpenEditModal = (candidate) => {
@@ -472,6 +523,83 @@ const Candidates = () => {
         )}
 
         <form onSubmit={handleSubmitCandidate} className="space-y-4">
+          {/* PDF CV Upload & Auto-fill Zone (Feature by Nour) */}
+          {!editingCandidate && (
+            <div className="mb-4">
+              <label
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  setDragActive(true);
+                }}
+                onDragLeave={() => setDragActive(false)}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  setDragActive(false);
+                  if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+                    handleCvUpload(e.dataTransfer.files[0]);
+                  }
+                }}
+                className={`relative flex flex-col items-center justify-center p-5 border-2 border-dashed rounded-2xl cursor-pointer transition ${
+                  dragActive
+                    ? 'border-brand-500 bg-brand-50/60'
+                    : 'border-slate-300 hover:border-brand-400 bg-slate-50/70 hover:bg-white'
+                }`}
+              >
+                <input
+                  type="file"
+                  accept=".pdf,application/pdf"
+                  className="hidden"
+                  disabled={cvUploading}
+                  onChange={(e) => {
+                    if (e.target.files && e.target.files[0]) {
+                      handleCvUpload(e.target.files[0]);
+                    }
+                  }}
+                />
+
+                {cvUploading ? (
+                  <div className="flex flex-col items-center py-2 text-center">
+                    <div className="relative mb-2">
+                      <Loader2 className="h-8 w-8 animate-spin text-brand-600" />
+                      <Sparkles className="h-4 w-4 text-brand-400 absolute top-0 right-0 animate-pulse" />
+                    </div>
+                    <p className="text-xs font-bold text-slate-800">
+                      Reading PDF & Parsing Profile with AI...
+                    </p>
+                    <p className="text-[11px] text-slate-500 mt-0.5">
+                      Extracting candidate competencies, experience, and contact data
+                    </p>
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center text-center">
+                    <div className="p-2.5 rounded-xl bg-brand-50 text-brand-600 mb-2 border border-brand-100">
+                      <UploadCloud className="h-6 w-6" />
+                    </div>
+                    <p className="text-xs font-bold text-slate-800">
+                      <span className="text-brand-600 underline">Upload Candidate Resume (PDF)</span> to auto-fill
+                    </p>
+                    <p className="text-[11px] text-slate-500 mt-1">
+                      Drag & drop PDF here or click to browse. The AI will extract all fields automatically.
+                    </p>
+                  </div>
+                )}
+              </label>
+
+              {cvUploadSuccess && (
+                <div className="mt-2.5 flex items-center gap-1.5 text-xs text-emerald-700 bg-emerald-50 px-3 py-2 rounded-xl border border-emerald-200">
+                  <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" />
+                  <span className="font-semibold">{cvUploadSuccess}</span>
+                </div>
+              )}
+
+              {cvUploadError && (
+                <div className="mt-2.5 flex items-center gap-1.5 text-xs text-rose-700 bg-rose-50 px-3 py-2 rounded-xl border border-rose-200">
+                  <AlertCircle className="h-4 w-4 shrink-0 text-rose-600" />
+                  <span className="font-medium">{cvUploadError}</span>
+                </div>
+              )}
+            </div>
+          )}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 mb-1">
