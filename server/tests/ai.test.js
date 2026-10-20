@@ -1,7 +1,7 @@
 const request = require('supertest');
 const app = require('../src/app');
 const prisma = require('../src/utils/prisma');
-const { candidateSummarySchema, jobMatchSchema, interviewQuestionsSchema } = require('../src/ai/schemas');
+const { candidateSummarySchema, jobMatchSchema, interviewQuestionsSchema, jobOfferGenerationSchema } = require('../src/ai/schemas');
 
 describe('TalentFlow AI Module Integration Tests (Phase 5 - Rules R1, R2, R3, R4)', () => {
   let authToken = '';
@@ -174,6 +174,116 @@ Strong understanding of database management and REST architecture.`,
         expect(q).toHaveProperty('category');
         expect(q).toHaveProperty('rationale');
       });
+    });
+  });
+
+  // ----------------------------------------------------
+  // FEATURE 4: JOB OFFER GENERATION
+  // ----------------------------------------------------
+  describe('POST /api/ai/job-offer/generate', () => {
+    it('should generate a structured job offer from a recruiter prompt', async () => {
+      const res = await request(app)
+        .post('/api/ai/job-offer/generate')
+        .set('Authorization', `Bearer ${authToken}`)
+        .send({
+          prompt: 'I am looking for a Spring Boot engineer with 2 years of experience, mastering Java, REST APIs and MySQL.',
+        });
+
+      expect(res.statusCode).toBe(200);
+      expect(res.body).toHaveProperty('title');
+      expect(res.body).toHaveProperty('description');
+      expect(res.body).toHaveProperty('responsibilities');
+      expect(res.body).toHaveProperty('requiredSkills');
+
+      // Rule R2 Zod Schema verification
+      const validation = jobOfferGenerationSchema.safeParse(res.body);
+      expect(validation.success).toBe(true);
+      expect(res.body.requiredSkills.length).toBeGreaterThanOrEqual(3);
+    });
+
+    it('should return 400 when prompt is too short', async () => {
+      const res = await request(app)
+        .post('/api/ai/job-offer/generate')
+        .set('Authorization', `Bearer ${authToken}`)
+        .send({ prompt: 'Too short' });
+
+      expect(res.statusCode).toBe(400);
+      expect(res.body.code).toBe('BAD_REQUEST');
+    });
+
+    it('should return 400 when prompt is missing', async () => {
+      const res = await request(app)
+        .post('/api/ai/job-offer/generate')
+        .set('Authorization', `Bearer ${authToken}`)
+        .send({});
+
+      expect(res.statusCode).toBe(400);
+      expect(res.body.code).toBe('BAD_REQUEST');
+    });
+
+    it('should return 400 when prompt is an empty/blank string', async () => {
+      const res = await request(app)
+        .post('/api/ai/job-offer/generate')
+        .set('Authorization', `Bearer ${authToken}`)
+        .send({ prompt: '    ' });
+
+      expect(res.statusCode).toBe(400);
+      expect(res.body.code).toBe('BAD_REQUEST');
+    });
+
+    it('should return 400 when prompt exceeds 1000 characters', async () => {
+      const res = await request(app)
+        .post('/api/ai/job-offer/generate')
+        .set('Authorization', `Bearer ${authToken}`)
+        .send({ prompt: 'a'.repeat(1001) });
+
+      expect(res.statusCode).toBe(400);
+      expect(res.body.code).toBe('BAD_REQUEST');
+    });
+
+    it('should require an authenticated recruiter (existing auth middleware)', async () => {
+      const res = await request(app)
+        .post('/api/ai/job-offer/generate')
+        .send({ prompt: 'Backend engineer with Java, Spring Boot and MySQL experience' });
+
+      expect(res.statusCode).toBe(401);
+      expect(res.body.code).toBe('UNAUTHORIZED');
+    });
+
+    it('should build the offer from the recruiter prompt instead of hardcoded content', async () => {
+      const res = await request(app)
+        .post('/api/ai/job-offer/generate')
+        .set('Authorization', `Bearer ${authToken}`)
+        .send({
+          prompt:
+            "Offre d'emploi pour un ingénieur Spring Boot avec 2 ans d'expérience, maîtrisant Java, les API REST et MySQL.",
+        });
+
+      expect(res.statusCode).toBe(200);
+
+      const generatedSkills = res.body.requiredSkills.join(', ').toLowerCase();
+      expect(generatedSkills).toContain('java');
+      expect(generatedSkills).toContain('spring boot');
+      expect(generatedSkills).toContain('mysql');
+      expect(res.body.experience).toMatch(/2\s*(ans|years)/i);
+      expect(res.body.title).toMatch(/java|spring boot/i);
+
+      const validation = jobOfferGenerationSchema.safeParse(res.body);
+      expect(validation.success).toBe(true);
+    });
+
+    it('should NOT persist the generated offer in the database', async () => {
+      const jobsBefore = await prisma.job.count();
+
+      const res = await request(app)
+        .post('/api/ai/job-offer/generate')
+        .set('Authorization', `Bearer ${authToken}`)
+        .send({ prompt: 'Backend engineer with Java, Spring Boot and MySQL experience' });
+
+      expect(res.statusCode).toBe(200);
+
+      const jobsAfter = await prisma.job.count();
+      expect(jobsAfter).toBe(jobsBefore);
     });
   });
 });

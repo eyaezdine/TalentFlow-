@@ -57,8 +57,25 @@ const interviewQuestionsSchema = z.object({
     .max(5, 'Exactly 5 questions are required'),
 });
 
+// Feature 4: Job Offer Generation Output Schema
+const jobOfferGenerationSchema = z.object({
+  title: z.string().trim().min(5, 'Job title must be at least 5 characters long'),
+  description: z.string().trim().min(50, 'Job description must be at least 50 characters long'),
+  responsibilities: z.array(z.string().trim().min(10)).min(3, 'Provide at least 3 responsibilities'),
+  requiredSkills: z.array(z.string().trim().min(2)).min(3, 'Provide at least 3 required skills'),
+  preferredSkills: z.array(z.string().trim().min(2)),
+  experience: z.string().trim().nullable(),
+  education: z.string().trim().nullable(),
+  employmentType: z.string().trim().nullable(),
+  location: z.string().trim().nullable(),
+  salary: z.string().trim().nullable(),
+  profile: z.string().trim().min(30, 'Candidate profile description must be at least 30 characters long'),
+  benefits: z.array(z.string().trim().min(5)),
+});
+
 module.exports = {
   candidateSummarySchema,
   jobMatchSchema,
   interviewQuestionsSchema,
+  jobOfferGenerationSchema,
 };

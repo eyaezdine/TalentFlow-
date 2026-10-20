@@ -5,11 +5,13 @@ const {
   candidateSummarySchema,
   jobMatchSchema,
   interviewQuestionsSchema,
+  jobOfferGenerationSchema,
 } = require('../ai/schemas');
 
 const summaryPromptV1 = require('../ai/prompts/summaryPrompt.v1');
 const matchingPromptV1 = require('../ai/prompts/matchingPrompt.v1');
 const interviewPromptV1 = require('../ai/prompts/interviewPrompt.v1');
+const jobOfferPromptV1 = require('../ai/prompts/jobOfferPrompt.v1');
 
 /**
  * Feature 1: Generate Professional Candidate Summary
@@ -191,8 +193,48 @@ const generateInterviewQuestions = async (req, res, next) => {
   }
 };
 
+/**
+ * Feature 4: Generate Job Offer from Recruiter Prompt
+ * POST /api/ai/job-offer/generate
+ */
+const generateJobOffer = async (req, res, next) => {
+  try {
+    const { prompt } = req.body;
+
+    if (!prompt || typeof prompt !== 'string' || prompt.trim().length < 10) {
+      return res.status(400).json({
+        code: 'BAD_REQUEST',
+        message: 'A prompt of at least 10 characters is required to generate a job offer.',
+      });
+    }
+
+    if (prompt.length > 1000) {
+      return res.status(400).json({
+        code: 'BAD_REQUEST',
+        message: 'Prompt is too long. Please limit to 1000 characters.',
+      });
+    }
+
+    // Rule R4: Versioned Prompt
+    const userPrompt = jobOfferPromptV1.buildUserPrompt(prompt.trim());
+
+    // Rules R2 & R3: Execute with validation and timeout
+    const result = await executeClaudeCompletion({
+      systemPrompt: jobOfferPromptV1.systemPrompt,
+      userPrompt,
+      outputSchema: jobOfferGenerationSchema,
+      featureName: 'job_offer_generation',
+    });
+
+    res.status(200).json(result);
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   generateCandidateSummary,
   matchCandidateToJob,
   generateInterviewQuestions,
+  generateJobOffer,
 };

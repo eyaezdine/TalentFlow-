@@ -15,4 +15,7 @@ router.post('/match', aiController.matchCandidateToJob);
 // Feature 3: 5 Tailored interview questions
 router.post('/questions', aiController.generateInterviewQuestions);
 
+// Feature 4: AI Job Offer Generation
+router.post('/job-offer/generate', aiController.generateJobOffer);
+
 module.exports = router;
