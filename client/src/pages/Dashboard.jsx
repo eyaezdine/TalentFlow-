@@ -96,9 +96,7 @@ const Dashboard = () => {
           <h1 className="text-3xl font-extrabold tracking-tight">
             Welcome back, {user?.name}! 👋
           </h1>
-          <p className="mt-2 text-sm text-slate-300 leading-relaxed">
-            Monitor recruitment pipeline throughput, candidate submissions, and trigger privacy-preserving Claude AI assessments.
-          </p>
+
 
           <div className="mt-6 flex flex-wrap gap-3">
             <Link

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { Layers, Lock, Mail, User, Shield, ArrowRight, AlertCircle, Loader2 } from 'lucide-react';
+import { Lock, Mail, User, Shield, ArrowRight, AlertCircle, Loader2 } from 'lucide-react';
 
 const Register = () => {
   const [name, setName] = useState('');
@@ -39,9 +39,11 @@ const Register = () => {
       <div className="w-full max-w-md">
         {/* Brand Banner */}
         <div className="text-center mb-8">
-          <div className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-tr from-brand-600 to-indigo-500 shadow-lg shadow-brand-500/30 text-white mb-3">
-            <Layers className="h-7 w-7" />
-          </div>
+          <img
+            src="/logo.png"
+            alt="TalentFlow Logo"
+            className="h-28 w-auto mx-auto mb-4 object-contain drop-shadow-sm"
+          />
           <h1 className="text-2xl font-bold tracking-tight text-slate-900">
             Create an Account
           </h1>

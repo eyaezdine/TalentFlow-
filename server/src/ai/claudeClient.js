@@ -85,21 +85,21 @@ const generateSimulatedResponse = (feature, promptText = '') => {
 
     const strengths = matchedSkills.length > 0
       ? [
-          `Strong demonstrable background in ${matchedSkills.slice(0, 3).join(', ')} directly addressing role requirements.`,
-          `${expYears} years of verified industry experience backed by a ${education}.`,
-        ]
+        `Strong demonstrable background in ${matchedSkills.slice(0, 3).join(', ')} directly addressing role requirements.`,
+        `${expYears} years of verified industry experience backed by a ${education}.`,
+      ]
       : [
-          `Solid foundation in ${primarySkill} and related web application patterns.`,
-          `${expYears} years of hands-on experience and good problem-solving foundation.`,
-        ];
+        `Solid foundation in ${primarySkill} and related web application patterns.`,
+        `${expYears} years of hands-on experience and good problem-solving foundation.`,
+      ];
 
     const gaps = missingSkills.length > 0
       ? [
-          `Less declared production exposure to ${missingSkills.slice(0, 2).join(', ')}, which should be probed in technical rounds.`,
-        ]
+        `Less declared production exposure to ${missingSkills.slice(0, 2).join(', ')}, which should be probed in technical rounds.`,
+      ]
       : [
-          `No critical skill gaps identified against declared prerequisites for ${jobTitle}.`,
-        ];
+        `No critical skill gaps identified against declared prerequisites for ${jobTitle}.`,
+      ];
 
     const recommendation = baseScore >= 75
       ? `Strong fit for ${jobTitle} with ${baseScore}% requirement coverage. Recommended to schedule immediate technical interview.`
@@ -169,6 +169,7 @@ const executeClaudeCompletion = async ({
 }) => {
   const geminiApiKey = process.env.GEMINI_API_KEY;
   const anthropicApiKey = process.env.ANTHROPIC_API_KEY;
+  const groqApiKey = process.env.GROQ_API_KEY;
 
   // 1. If running automated CI/Jest tests without FORCE_LIVE_AI, keep tests deterministic and instantaneous
   if (process.env.NODE_ENV === 'test' && !process.env.FORCE_LIVE_AI) {
@@ -176,7 +177,106 @@ const executeClaudeCompletion = async ({
     return outputSchema.parse(simulated);
   }
 
-  // 2. Check if Google Gemini live API is configured
+  // 2. Route cv_parsing exclusively through Groq (llama-3.3-70b-versatile)
+  const useGroq = Boolean(
+    featureName === 'cv_parsing' &&
+    groqApiKey &&
+    groqApiKey !== 'mock-key-development' &&
+    !groqApiKey.includes('your_')
+  );
+
+  if (useGroq) {
+    const groqModel = process.env.GROQ_MODEL || 'llama-3.3-70b-versatile';
+    const groqUrl = 'https://api.groq.com/openai/v1/chat/completions';
+
+    console.log(`[AI LIVE CALL] Sending live request to Groq (${groqModel}) for ${featureName}`);
+
+    const callGroqWithTimeout = async (userContent) => {
+      const controller = new AbortController();
+      const timeoutHandle = setTimeout(() => controller.abort(), TIMEOUT_MS);
+
+      try {
+        const response = await fetch(groqUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${groqApiKey}`,
+          },
+          body: JSON.stringify({
+            model: groqModel,
+            messages: [
+              { role: 'system', content: systemPrompt },
+              { role: 'user', content: userContent },
+            ],
+            temperature,
+            response_format: { type: 'json_object' },
+          }),
+          signal: controller.signal,
+        });
+
+        clearTimeout(timeoutHandle);
+
+        if (!response.ok) {
+          const errBody = await response.json().catch(() => ({}));
+          const errMsg = errBody.error?.message || response.statusText;
+
+          if (response.status === 429) {
+            const rateError = new Error('Groq API rate limit exceeded. Please try again shortly.');
+            rateError.code = 'AI_QUOTA_EXCEEDED';
+            rateError.statusCode = 429;
+            throw rateError;
+          }
+
+          const apiError = new Error(`Groq API error (${response.status}): ${errMsg}`);
+          apiError.code = 'AI_NETWORK_ERROR';
+          apiError.statusCode = 502;
+          throw apiError;
+        }
+
+        const data = await response.json();
+        return data.choices?.[0]?.message?.content || '';
+      } catch (err) {
+        clearTimeout(timeoutHandle);
+
+        if (err.name === 'AbortError' || controller.signal?.aborted) {
+          const timeoutError = new Error(`Groq request timed out after ${TIMEOUT_MS / 1000} seconds.`);
+          timeoutError.code = 'AI_TIMEOUT';
+          timeoutError.statusCode = 504;
+          throw timeoutError;
+        }
+
+        throw err;
+      }
+    };
+
+    // Attempt 1: Call Groq
+    let rawText = await callGroqWithTimeout(userPrompt);
+
+    // Rule R2: Validate with Zod; retry once on bad JSON
+    try {
+      const cleaned = cleanJsonString(rawText);
+      const parsed = JSON.parse(cleaned);
+      return outputSchema.parse(parsed);
+    } catch (initialError) {
+      console.warn(`[RULE R2 RETRY] Groq attempt 1 invalid JSON. Retrying... Error: ${initialError.message}`);
+
+      const correctivePrompt = `${userPrompt}\n\nIMPORTANT: Your previous output failed schema validation: ${initialError.message}. Reply STRICTLY with raw JSON only.`;
+
+      try {
+        const retryRawText = await callGroqWithTimeout(correctivePrompt);
+        const retryCleaned = cleanJsonString(retryRawText);
+        const retryParsed = JSON.parse(retryCleaned);
+        return outputSchema.parse(retryParsed);
+      } catch (retryError) {
+        const finalError = new Error(`Groq returned malformed output after retry: ${retryError.message}`);
+        finalError.code = 'AI_INVALID_OUTPUT';
+        finalError.statusCode = 502;
+        throw finalError;
+      }
+    }
+  }
+
+  // 3. Check if Google Gemini live API is configured (all other features)
   const useGemini = Boolean(
     geminiApiKey &&
     geminiApiKey !== 'mock-key-development' &&
@@ -184,7 +284,7 @@ const executeClaudeCompletion = async ({
   );
 
   if (useGemini) {
-    const geminiModel = process.env.GEMINI_MODEL || 'gemini-3.8-flash';
+    const geminiModel = process.env.GEMINI_MODEL || 'gemini-3.5-flash-lite';
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent?key=${geminiApiKey}`;
 
     console.log(`[AI LIVE CALL] Sending live request to Google Gemini (${geminiModel}) for ${featureName}`);
