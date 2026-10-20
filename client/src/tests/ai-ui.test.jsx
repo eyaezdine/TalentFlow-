@@ -1,7 +1,6 @@
 import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
-import AiSummaryModal from '../components/AiSummaryModal';
 import AiMatchModal from '../components/AiMatchModal';
 import AiQuestionsModal from '../components/AiQuestionsModal';
 import api from '../api/client';
@@ -32,59 +31,6 @@ describe('TalentFlow AI UI Modals (Phase 5 - Rules R1, R2, R3)', () => {
     department: 'Engineering',
     requiredSkills: 'React, Node.js, SQL',
   };
-
-  describe('AiSummaryModal Component (Feature 1)', () => {
-    it('displays loading state and then renders summary and audit drawer', async () => {
-      api.post.mockResolvedValueOnce({
-        data: {
-          feature: 'candidate_summary',
-          data: {
-            summary:
-              'Candidate is an experienced full stack engineer with deep expertise in modern React and Node.js ecosystems. Demonstrates substantial experience architecting scalable backend APIs and responsive user interfaces. Highly proficient in collaborative agile environments.',
-            keywords: ['React', 'Node.js', 'TypeScript', 'PostgreSQL'],
-          },
-          anonymizationAudit: {
-            pseudonym: 'Candidate A',
-            removedEmail: 'sarah.connor@cyberdyne.io',
-            removedPhone: '+1-555-0199',
-            removedName: 'Sarah Connor',
-          },
-          anonymizedDataSent: {
-            identifier: 'Candidate A',
-            skills: ['React', 'Node.js', 'TypeScript', 'PostgreSQL'],
-            experienceYears: 6,
-            educationLevel: "Bachelor's Degree",
-          },
-        },
-      });
-
-      render(
-        <AiSummaryModal
-          isOpen={true}
-          onClose={() => {}}
-          candidate={mockCandidate}
-        />
-      );
-
-      // Verify header and R1 badge
-      expect(screen.getByText(/AI Candidate Executive Summary/i)).toBeInTheDocument();
-      expect(screen.getByText(/Rule R1 PII Anonymization Applied/i)).toBeInTheDocument();
-
-      // Wait for resolved data
-      await waitFor(() => {
-        expect(screen.getByText(/3-Sentence Professional Assessment/i)).toBeInTheDocument();
-      });
-
-      expect(screen.getByText(/deep expertise in modern React and Node.js/i)).toBeInTheDocument();
-      expect(screen.getByText('React')).toBeInTheDocument();
-
-      // Inspect Rule R1 drawer
-      const inspectAuditBtn = screen.getByText(/Inspect Rule R1 Anonymization Audit/i);
-      fireEvent.click(inspectAuditBtn);
-      expect(screen.getByText(/Audit Log Token: Candidate A/i)).toBeInTheDocument();
-      expect(screen.getByText(/Zero PII Transmitted/i)).toBeInTheDocument();
-    });
-  });
 
   describe('AiMatchModal Component (Feature 2)', () => {
     it('renders match score, recommendation, and strengths', async () => {

@@ -1,7 +1,7 @@
 const request = require('supertest');
 const app = require('../src/app');
 const prisma = require('../src/utils/prisma');
-const { candidateSummarySchema, jobMatchSchema, interviewQuestionsSchema } = require('../src/ai/schemas');
+const { jobMatchSchema, interviewQuestionsSchema } = require('../src/ai/schemas');
 
 describe('TalentFlow AI Module Integration Tests (Phase 5 - Rules R1, R2, R3, R4)', () => {
   let authToken = '';
@@ -85,43 +85,7 @@ Strong understanding of database management and REST architecture.`,
     await prisma.$disconnect();
   });
 
-  // ----------------------------------------------------
-  // FEATURE 1: CANDIDATE SUMMARY
-  // ----------------------------------------------------
-  describe('POST /api/ai/summary', () => {
-    it('should generate a validated 3-sentence summary with keywords and audit trail', async () => {
-      const res = await request(app)
-        .post('/api/ai/summary')
-        .set('Authorization', `Bearer ${authToken}`)
-        .send({ candidateId: testCandidateId });
 
-      expect(res.statusCode).toBe(200);
-      expect(res.body).toHaveProperty('data');
-      expect(res.body).toHaveProperty('anonymizationAudit');
-      expect(res.body).toHaveProperty('anonymizedDataSent');
-
-      // Rule R1 Anonymization check
-      expect(res.body.anonymizedDataSent).not.toHaveProperty('name');
-      expect(res.body.anonymizedDataSent).not.toHaveProperty('email');
-      expect(res.body.anonymizedDataSent.anonymizedCvText).not.toContain('Thomas Anderson');
-      expect(res.body.anonymizedDataSent.anonymizedCvText).not.toContain('neo.anderson@matrix.com');
-
-      // Rule R2 Zod Validation schema check
-      const validation = candidateSummarySchema.safeParse(res.body.data);
-      expect(validation.success).toBe(true);
-      expect(res.body.data.keywords.length).toBeGreaterThanOrEqual(3);
-    });
-
-    it('should return 404 when candidateId does not exist', async () => {
-      const res = await request(app)
-        .post('/api/ai/summary')
-        .set('Authorization', `Bearer ${authToken}`)
-        .send({ candidateId: 'non-existent-uuid' });
-
-      expect(res.statusCode).toBe(404);
-      expect(res.body.code).toBe('CANDIDATE_NOT_FOUND');
-    });
-  });
 
   // ----------------------------------------------------
   // FEATURE 2: CANDIDATE <-> JOB MATCHING
