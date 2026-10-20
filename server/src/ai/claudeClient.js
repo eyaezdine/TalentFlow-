@@ -54,6 +54,20 @@ const generateSimulatedResponse = (feature, promptText = '') => {
   const primarySkill = topSkills[0] || 'Modern Engineering';
   const secondarySkill = topSkills[1] || 'System Architecture';
 
+  if (feature === 'candidate_summary') {
+    const s1 = expYears > 5
+      ? `Senior engineering profile offering ${expYears} years of progressive experience with strong specialization in ${primarySkill} and ${secondarySkill}.`
+      : `Promising software engineer with ${expYears} years of practical experience focusing primarily on ${primarySkill} and ${secondarySkill}.`;
+    const s2 = `Demonstrates consistent delivery across modern web systems, database design, and collaborative development environments.`;
+    const s3 = `Holds a ${education} and exhibits the technical aptitude to make an immediate impact on core engineering objectives.`;
+
+    const keywords = Array.from(new Set([...topSkills, primarySkill, secondarySkill, 'System Design', 'Agile Delivery'])).slice(0, 6);
+
+    return {
+      summary: `${s1} ${s2} ${s3}`,
+      keywords,
+    };
+  }
 
   if (feature === 'candidate_job_matching') {
     // Calculate realistic dynamic score based on skill overlap

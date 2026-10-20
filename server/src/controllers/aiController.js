@@ -2,12 +2,65 @@ const prisma = require('../utils/prisma');
 const { anonymizeCandidate } = require('../ai/anonymize');
 const { executeClaudeCompletion } = require('../ai/claudeClient');
 const {
+  candidateSummarySchema,
   jobMatchSchema,
   interviewQuestionsSchema,
 } = require('../ai/schemas');
 
+const summaryPromptV1 = require('../ai/prompts/summaryPrompt.v1');
 const matchingPromptV1 = require('../ai/prompts/matchingPrompt.v1');
 const interviewPromptV1 = require('../ai/prompts/interviewPrompt.v1');
+
+/**
+ * Feature 1: Generate Professional Candidate Summary
+ * POST /api/ai/summary
+ */
+const generateCandidateSummary = async (req, res, next) => {
+  try {
+    const { candidateId } = req.body;
+
+    if (!candidateId) {
+      return res.status(400).json({
+        code: 'BAD_REQUEST',
+        message: 'candidateId is required',
+      });
+    }
+
+    const candidate = await prisma.candidate.findUnique({
+      where: { id: candidateId },
+    });
+
+    if (!candidate) {
+      return res.status(404).json({
+        code: 'CANDIDATE_NOT_FOUND',
+        message: `Candidate with ID '${candidateId}' was not found.`,
+      });
+    }
+
+    // Rule R1: Mandatory Anonymization Layer
+    const { anonymized, auditLog } = anonymizeCandidate(candidate);
+
+    // Rule R4: Versioned Prompt
+    const userPrompt = summaryPromptV1.buildUserPrompt(anonymized);
+
+    // Rules R2 & R3: Execute with 15s timeout, validation, and retry
+    const result = await executeClaudeCompletion({
+      systemPrompt: summaryPromptV1.systemPrompt,
+      userPrompt,
+      outputSchema: candidateSummarySchema,
+      featureName: 'candidate_summary',
+    });
+
+    res.status(200).json({
+      feature: 'candidate_summary',
+      data: result,
+      anonymizationAudit: auditLog,
+      anonymizedDataSent: anonymized,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
 
 /**
  * Feature 2: Candidate <-> Job Matching Analysis
@@ -139,6 +192,7 @@ const generateInterviewQuestions = async (req, res, next) => {
 };
 
 module.exports = {
+  generateCandidateSummary,
   matchCandidateToJob,
   generateInterviewQuestions,
 };

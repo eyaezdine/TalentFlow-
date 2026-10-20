@@ -3,6 +3,7 @@ import api from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import Modal from '../components/Modal';
 import Pagination from '../components/Pagination';
+import AiSummaryModal from '../components/AiSummaryModal';
 import AiMatchModal from '../components/AiMatchModal';
 import {
   Users,
@@ -39,6 +40,7 @@ const Candidates = () => {
   const [editingCandidate, setEditingCandidate] = useState(null);
 
   // AI Modals state
+  const [isAiSummaryModalOpen, setIsAiSummaryModalOpen] = useState(false);
   const [isAiMatchModalOpen, setIsAiMatchModalOpen] = useState(false);
   const [selectedAiCandidate, setSelectedAiCandidate] = useState(null);
   const [selectedAiMatchJob, setSelectedAiMatchJob] = useState(null);
@@ -315,7 +317,17 @@ const Candidates = () => {
                     <Eye className="h-3.5 w-3.5" />
                     <span>Inspect</span>
                   </button>
-
+                  <button
+                    onClick={() => {
+                      setSelectedAiCandidate(candidate);
+                      setIsAiSummaryModalOpen(true);
+                    }}
+                    className="flex items-center gap-1 text-xs font-semibold text-brand-700 bg-brand-50 hover:bg-brand-100 px-2.5 py-1 rounded-lg border border-brand-200 transition"
+                    title="Generate 3-Sentence AI Executive Summary"
+                  >
+                    <Sparkles className="h-3.5 w-3.5 text-brand-600" />
+                    <span>AI Summary</span>
+                  </button>
                 </div>
 
                 <div className="flex items-center gap-1.5">
@@ -377,7 +389,18 @@ const Candidates = () => {
                 <span className="rounded-full bg-brand-50 px-3 py-1 text-xs font-semibold text-brand-700 border border-brand-200">
                   {selectedCandidate.experienceYears} Years Experience
                 </span>
-
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedAiCandidate(selectedCandidate);
+                    setIsAiSummaryModalOpen(true);
+                  }}
+                  className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-brand-600 to-indigo-600 px-3 py-1 text-xs font-semibold text-white shadow-sm hover:from-brand-700 hover:to-indigo-700 transition"
+                  title="Generate 3-Sentence AI Executive Summary"
+                >
+                  <Sparkles className="h-3.5 w-3.5" />
+                  <span>AI Summary</span>
+                </button>
               </div>
             </div>
 
@@ -592,7 +615,12 @@ const Candidates = () => {
         </form>
       </Modal>
 
-
+      {/* AI Candidate Summary Modal (Feature 1) */}
+      <AiSummaryModal
+        isOpen={isAiSummaryModalOpen}
+        onClose={() => setIsAiSummaryModalOpen(false)}
+        candidate={selectedAiCandidate}
+      />
 
       {/* AI Candidate-Job Match Modal (Feature 2) */}
       <AiMatchModal

@@ -127,7 +127,37 @@ Extensive experience running Go microservices on multi-region Kubernetes cluster
     candidateId = candidateRes.body.data.id;
   });
 
+  // Step 4: AI Feature 1 - Executive Summary & Anonymization Audit
+  it('Step 4: triggers AI executive summary with mandatory Rule R1 PII anonymization', async () => {
+    const summaryRes = await request(app)
+      .post('/api/ai/summary')
+      .set('Authorization', `Bearer ${authToken}`)
+      .send({ candidateId });
 
+    expect(summaryRes.status).toBe(200);
+    expect(summaryRes.body.feature).toBe('candidate_summary');
+
+    // Rule R1 Anonymization verification
+    const audit = summaryRes.body.anonymizationAudit;
+    expect(audit).toBeDefined();
+    expect(audit.pseudonym).toMatch(/Candidate [A-Z]/);
+    expect(audit.removedFields).toContain('name');
+    expect(audit.removedFields).toContain('email');
+    expect(audit.removedFields).toContain('phone');
+
+    // Transmitted payload contains zero PII
+    const sentData = summaryRes.body.anonymizedDataSent;
+    expect(sentData.identifier).toMatch(/Candidate [A-Z]/);
+    expect(sentData.skills).toContain('Kubernetes');
+    expect(sentData.experienceYears).toBe(8);
+
+    // Rule R2 Zod validated completion
+    const aiData = summaryRes.body.data;
+    expect(typeof aiData.summary).toBe('string');
+    expect(aiData.summary.length).toBeGreaterThan(30);
+    expect(Array.isArray(aiData.keywords)).toBe(true);
+    expect(aiData.keywords.length).toBeGreaterThanOrEqual(3);
+  });
 
   // Step 5: Link Candidate to Job via Application Pipeline
   it('Step 5: links candidate to job in application pipeline (Stage: NEW)', async () => {
