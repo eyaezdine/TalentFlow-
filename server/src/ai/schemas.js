@@ -10,7 +10,21 @@ const { z } = require('zod');
  * ====================================================
  */
 
-
+// Feature 1: Candidate Professional Summary Output Schema
+const candidateSummarySchema = z.object({
+  summary: z
+    .string({ required_error: 'Summary is required' })
+    .min(30, 'Summary must be at least 30 characters long')
+    .refine((val) => {
+      // Check that summary consists of approximately 2-4 sentences
+      const sentenceCount = (val.match(/[^.!?]+[.!?]+/g) || []).length;
+      return sentenceCount >= 2 && sentenceCount <= 5;
+    }, 'Summary must be approximately 3 sentences long'),
+  keywords: z
+    .array(z.string().trim().min(2))
+    .min(3, 'At least 3 technical keywords required')
+    .max(12, 'Maximum 12 technical keywords allowed'),
+});
 
 // Feature 2: Candidate <-> Job Matching Output Schema
 const jobMatchSchema = z.object({
@@ -44,6 +58,7 @@ const interviewQuestionsSchema = z.object({
 });
 
 module.exports = {
+  candidateSummarySchema,
   jobMatchSchema,
   interviewQuestionsSchema,
 };

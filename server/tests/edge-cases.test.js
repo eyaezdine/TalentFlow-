@@ -175,7 +175,14 @@ describe('TalentFlow Security & Edge Cases Suite (Phase 6 QA)', () => {
       expect(res.body.code).toBe('JOB_NOT_FOUND');
     });
 
-
+    it('returns 404 when requesting AI summary for non-existent candidate', async () => {
+      const res = await request(app)
+        .post('/api/ai/summary')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ candidateId: '00000000-0000-0000-0000-000000000000' });
+      expect(res.status).toBe(404);
+      expect(res.body.code).toBe('CANDIDATE_NOT_FOUND');
+    });
 
     it('returns 404 when accessing an unmapped route', async () => {
       const res = await request(app)
