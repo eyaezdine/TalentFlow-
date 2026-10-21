@@ -6,12 +6,14 @@ const {
   jobMatchSchema,
   interviewQuestionsSchema,
   cvParsingSchema,
+  interviewPolishSchema,
 } = require('../ai/schemas');
 
 const summaryPromptV1 = require('../ai/prompts/summaryPrompt.v1');
 const matchingPromptV1 = require('../ai/prompts/matchingPrompt.v1');
 const interviewPromptV1 = require('../ai/prompts/interviewPrompt.v1');
 const cvParsingPromptV1 = require('../ai/prompts/cvParsingPrompt.v1');
+const interviewPolishPromptV1 = require('../ai/prompts/interviewPolishPrompt.v1');
 
 // Helper to extract text from PDF buffer supporting multiple pdf-parse versions
 const extractTextFromPdfBuffer = async (buffer) => {
@@ -274,9 +276,84 @@ const generateInterviewQuestions = async (req, res, next) => {
   }
 };
 
+/**
+ * Feature: Polish In-Interview Shorthand Notes into Standard Scorecard
+ * POST /api/ai/polish-notes
+ */
+const polishInterviewNotes = async (req, res, next) => {
+  try {
+    const { notes, candidateId, jobId, applicationId, durationMinutes, candidateName, jobTitle } = req.body;
+
+    if (!notes || typeof notes !== 'string' || notes.trim().length === 0) {
+      return res.status(400).json({
+        code: 'VALIDATION_ERROR',
+        message: 'Raw interview notes are required.',
+      });
+    }
+
+    let candName = candidateName || '';
+    let jTitle = jobTitle || '';
+    let jDept = '';
+    let reqSkills = '';
+
+    if (candidateId) {
+      const candidate = await prisma.candidate.findUnique({ where: { id: candidateId } });
+      if (candidate) candName = candidate.name;
+    }
+
+    if (jobId) {
+      const job = await prisma.job.findUnique({ where: { id: jobId } });
+      if (job) {
+        jTitle = job.title;
+        jDept = job.department;
+        reqSkills = job.requiredSkills;
+      }
+    }
+
+    if (applicationId && (!candName || !jTitle)) {
+      const app = await prisma.application.findUnique({
+        where: { id: applicationId },
+        include: { candidate: true, job: true },
+      });
+      if (app) {
+        if (app.candidate) candName = app.candidate.name;
+        if (app.job) {
+          jTitle = app.job.title;
+          jDept = app.job.department;
+          reqSkills = app.job.requiredSkills;
+        }
+      }
+    }
+
+    const userPrompt = interviewPolishPromptV1.buildUserPrompt({
+      candidateName: candName,
+      jobTitle: jTitle,
+      jobDepartment: jDept,
+      requiredSkills: reqSkills,
+      rawNotes: notes,
+      durationMinutes: durationMinutes || null,
+    });
+
+    const result = await executeClaudeCompletion({
+      systemPrompt: interviewPolishPromptV1.systemPrompt,
+      userPrompt,
+      outputSchema: interviewPolishSchema,
+      featureName: 'interview_polish',
+    });
+
+    res.status(200).json({
+      feature: 'interview_polish',
+      data: result,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   generateCandidateSummary,
   matchCandidateToJob,
   generateInterviewQuestions,
   parseCvPdf,
+  polishInterviewNotes,
 };

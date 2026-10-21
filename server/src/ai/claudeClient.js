@@ -169,6 +169,27 @@ const generateSimulatedResponse = (feature, promptText = '') => {
     };
   }
 
+  if (feature === 'interview_polish') {
+    return {
+      executiveSummary: `The candidate presented strong foundational competencies for the ${jobTitle} role, exhibiting solid problem-solving composure and clear technical rationale.`,
+      strengths: [
+        `Demonstrated working understanding of ${primarySkill} and architecture paradigms.`,
+        'Articulate communication style when explaining technical trade-offs.',
+      ],
+      areasForImprovement: [
+        'Could deepen knowledge on specialized optimization patterns and edge-case handling.',
+      ],
+      ratings: {
+        technicalProficiency: 4,
+        communication: 4,
+        problemSolving: 4,
+      },
+      recommendation: 'HIRE',
+      rationale: `Candidate aligns closely with the core prerequisites for ${jobTitle} and shows high coachability.`,
+      formattedNotes: `### Executive Summary\nThe candidate demonstrated strong core competencies for the ${jobTitle} role.\n\n### Strengths\n- Strong understanding of ${primarySkill}\n- Clear communication\n\n### Recommendation\n**HIRE**: Recommended to advance.`,
+    };
+  }
+
   throw new Error(`Unknown feature for simulation: ${feature}`);
 };
 
@@ -201,9 +222,9 @@ const executeClaudeCompletion = async ({
     return outputSchema.parse(simulated);
   }
 
-  // 2. Route cv_parsing exclusively through Groq (mixtral-8x7b-32768)
+  // 2. Route cv_parsing & interview_polish through Groq if available
   const useGroq = Boolean(
-    featureName === 'cv_parsing' &&
+    (featureName === 'cv_parsing' || featureName === 'interview_polish') &&
     groqApiKey &&
     groqApiKey !== 'mock-key-development' &&
     !groqApiKey.includes('your_')

@@ -26,4 +26,7 @@ router.post('/match', aiController.matchCandidateToJob);
 // Feature 3: 5 Tailored interview questions
 router.post('/questions', aiController.generateInterviewQuestions);
 
+// Feature 4: In-interview rapid notes polish & scorecard synthesis
+router.post('/polish-notes', aiController.polishInterviewNotes);
+
 module.exports = router;

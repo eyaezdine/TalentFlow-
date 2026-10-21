@@ -1,7 +1,12 @@
 const request = require('supertest');
 const app = require('../src/app');
-const prisma = require('../src/utils/prisma');
-const { candidateSummarySchema, jobMatchSchema, interviewQuestionsSchema, cvParsingSchema } = require('../src/ai/schemas');
+const {
+  candidateSummarySchema,
+  jobMatchSchema,
+  interviewQuestionsSchema,
+  cvParsingSchema,
+  interviewPolishSchema,
+} = require('../src/ai/schemas');
 
 jest.mock('pdf-parse', () => {
   return jest.fn().mockImplementation(() =>
@@ -235,6 +240,49 @@ Strong understanding of database management and REST architecture.`,
 
       // Rule R2 Zod Validation schema check
       const validation = cvParsingSchema.safeParse(res.body.data);
+      expect(validation.success).toBe(true);
+    });
+  });
+
+  describe('Feature 4: Live Interview Notes Polishing (/api/ai/polish-notes)', () => {
+    it('should reject requests with missing or empty notes', async () => {
+      const res = await request(app)
+        .post('/api/ai/polish-notes')
+        .set('Authorization', `Bearer ${authToken}`)
+        .send({ candidateId: testCandidateId, jobId: testJobId, notes: '   ' });
+
+      expect(res.statusCode).toBe(400);
+      expect(res.body.code).toBe('VALIDATION_ERROR');
+    });
+
+    it('should transform raw shorthand notes into a standardized hiring scorecard', async () => {
+      const rawNotes = `
+        - Arrived on time, very articulate
+        - Strong on React hooks and event loops
+        - Struggled with DB indexing questions, took 5 mins to explain B-Tree
+        - Positive cultural fit, great curiosity about deployment pipelines
+      `;
+
+      const res = await request(app)
+        .post('/api/ai/polish-notes')
+        .set('Authorization', `Bearer ${authToken}`)
+        .send({
+          candidateId: testCandidateId,
+          jobId: testJobId,
+          notes: rawNotes,
+          durationMinutes: 45,
+        });
+
+      expect(res.statusCode).toBe(200);
+      expect(res.body.feature).toBe('interview_polish');
+      expect(res.body.data).toHaveProperty('executiveSummary');
+      expect(res.body.data).toHaveProperty('strengths');
+      expect(res.body.data).toHaveProperty('areasForImprovement');
+      expect(res.body.data).toHaveProperty('ratings');
+      expect(res.body.data).toHaveProperty('recommendation');
+
+      // Rule R2 Zod Validation check
+      const validation = interviewPolishSchema.safeParse(res.body.data);
       expect(validation.success).toBe(true);
     });
   });

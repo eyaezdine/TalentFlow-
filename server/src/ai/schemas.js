@@ -68,9 +68,37 @@ const cvParsingSchema = z.object({
   summary: z.string().trim().default(''),
 });
 
+// Feature: Interview Note Polishing & Scorecard Synthesis Schema
+const interviewPolishSchema = z.object({
+  executiveSummary: z
+    .string({ required_error: 'Executive summary is required' })
+    .trim()
+    .min(15, 'Executive summary must be at least 15 characters long'),
+  strengths: z
+    .array(z.string().trim().min(2))
+    .min(1, 'At least one candidate strength is required'),
+  areasForImprovement: z
+    .array(z.string().trim().min(2))
+    .default([]),
+  ratings: z.object({
+    technicalProficiency: z.coerce.number().int().min(1).max(5).default(3),
+    communication: z.coerce.number().int().min(1).max(5).default(3),
+    problemSolving: z.coerce.number().int().min(1).max(5).default(3),
+  }),
+  recommendation: z
+    .enum(['STRONG_HIRE', 'HIRE', 'CONSIDER', 'REJECT'])
+    .default('HIRE'),
+  rationale: z
+    .string({ required_error: 'Rationale is required' })
+    .trim()
+    .min(10, 'Rationale must be at least 10 characters long'),
+  formattedNotes: z.string().trim().optional(),
+});
+
 module.exports = {
   candidateSummarySchema,
   jobMatchSchema,
   interviewQuestionsSchema,
   cvParsingSchema,
+  interviewPolishSchema,
 };

@@ -18,7 +18,10 @@ import {
   Trash2,
   MessageSquare,
   UserCheck,
+  Play,
+  Sparkles,
 } from 'lucide-react';
+import InterviewConsole from '../components/InterviewConsole';
 
 // Returns datetime-local min string = now (prevents past date selection)
 const getNowLocal = () => {
@@ -65,6 +68,11 @@ const Interviews = () => {
   const [completeInterview, setCompleteInterview] = useState(null);
   const [completionNotes, setCompletionNotes] = useState('');
   const [submittingComplete, setSubmittingComplete] = useState(false);
+  const [polishingInModal, setPolishingInModal] = useState(false);
+
+  // Live Interview Console
+  const [isConsoleOpen, setIsConsoleOpen] = useState(false);
+  const [consoleInterview, setConsoleInterview] = useState(null);
 
   const [actionSuccess, setActionSuccess] = useState('');
 
@@ -172,11 +180,56 @@ const Interviews = () => {
     }
   };
 
+  // ── Live Interview Console ──────────────────────────────
+  const handleOpenConsole = (interview) => {
+    setConsoleInterview(interview);
+    setIsConsoleOpen(true);
+  };
+
   // ── Complete with feedback ────────────────────────────────
   const handleOpenComplete = (interview) => {
     setCompleteInterview(interview);
-    setCompletionNotes('');
+    setCompletionNotes(interview.notes || '');
     setIsCompleteOpen(true);
+  };
+
+  const handlePolishInModal = async () => {
+    if (!completionNotes.trim()) {
+      alert('Please enter some rough notes first to polish.');
+      return;
+    }
+    setPolishingInModal(true);
+    try {
+      const res = await api.post('/ai/polish-notes', {
+        notes: completionNotes,
+        candidateId: completeInterview?.candidateId,
+        jobId: completeInterview?.jobId,
+      });
+      const sc = res.data.data;
+      const formatted = `### 📋 Scorecard (${sc.recommendation})
+**Ratings:** Tech ${sc.ratings?.technicalProficiency}/5 · Comm ${sc.ratings?.communication}/5 · Problem Solving ${sc.ratings?.problemSolving}/5
+
+**Executive Summary:**
+${sc.executiveSummary}
+
+**Key Strengths:**
+${sc.strengths?.map((s) => `• ${s}`).join('\n')}
+
+**Areas of Improvement:**
+${sc.areasForImprovement?.map((a) => `• ${a}`).join('\n')}
+
+**Rationale:**
+${sc.rationale}
+
+---
+#### Raw Notes:
+${completionNotes}`;
+      setCompletionNotes(formatted);
+    } catch (err) {
+      alert(err.message || 'AI Polish failed. Check API configuration.');
+    } finally {
+      setPolishingInModal(false);
+    }
   };
 
   const handleCompleteSubmit = async (e) => {
@@ -412,23 +465,30 @@ const Interviews = () => {
               <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
                 {item.status === 'planned' ? (
                   <>
-                    <div className="flex items-center gap-1.5">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <button
+                        onClick={() => handleOpenConsole(item)}
+                        className="px-2.5 py-1 rounded-lg text-xs font-bold bg-brand-600 hover:bg-brand-500 text-white shadow-sm transition flex items-center gap-1"
+                        title="Open live interview console with AI questions and scratchpad"
+                      >
+                        <Play className="h-3 w-3 fill-current" /> Start
+                      </button>
                       <button
                         onClick={() => handleOpenComplete(item)}
-                        className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition"
+                        className="px-2 py-1 rounded-lg text-xs font-semibold bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition"
                         title="Mark as Completed + add feedback"
                       >
                         Complete
                       </button>
                       <button
                         onClick={() => handleCancel(item.id)}
-                        className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-100 text-slate-600 hover:bg-red-50 hover:text-red-700 transition"
+                        className="px-2 py-1 rounded-lg text-xs font-semibold bg-slate-100 text-slate-600 hover:bg-red-50 hover:text-red-700 transition"
                       >
                         Cancel
                       </button>
                       <button
                         onClick={() => handleOpenReschedule(item)}
-                        className="px-2.5 py-1 rounded-lg text-xs font-semibold border border-slate-200 text-slate-600 hover:bg-slate-50 transition flex items-center gap-1"
+                        className="px-2 py-1 rounded-lg text-xs font-semibold border border-slate-200 text-slate-600 hover:bg-slate-50 transition flex items-center gap-1"
                       >
                         <CalendarClock className="h-3 w-3" /> Reschedule
                       </button>
@@ -598,13 +658,25 @@ const Interviews = () => {
             <p><strong>Job:</strong> {completeInterview?.job?.title}</p>
           </div>
           <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">Post-Interview Feedback (optional)</label>
+            <div className="flex items-center justify-between mb-1">
+              <label className="block text-xs font-semibold text-slate-700">Post-Interview Feedback / Notes</label>
+              <button
+                type="button"
+                onClick={handlePolishInModal}
+                disabled={polishingInModal || !completionNotes.trim()}
+                className="inline-flex items-center gap-1 text-[11px] font-bold text-purple-600 hover:text-purple-800 disabled:opacity-40 transition"
+                title="Transform rough notes into standard scorecard"
+              >
+                {polishingInModal ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
+                <span>Polish with AI</span>
+              </button>
+            </div>
             <textarea
-              rows={4}
+              rows={5}
               value={completionNotes}
               onChange={(e) => setCompletionNotes(e.target.value)}
-              placeholder="Strong performance on technical questions, needs follow-up on system design..."
-              className="w-full rounded-xl border border-slate-300 p-2.5 text-sm focus:border-brand-500 focus:outline-none leading-relaxed"
+              placeholder="Enter rough shorthand notes or click 'Polish with AI' to generate a standardized debrief..."
+              className="w-full rounded-xl border border-slate-300 p-2.5 text-xs font-mono focus:border-brand-500 focus:outline-none leading-relaxed"
             />
           </div>
           <div className="mt-4 flex justify-end gap-3 pt-4 border-t border-slate-100">
@@ -652,6 +724,20 @@ const Interviews = () => {
           </div>
         </div>
       </Modal>
+
+      {/* ── Live Interview Console (Option 1) ── */}
+      <InterviewConsole
+        isOpen={isConsoleOpen}
+        interview={consoleInterview}
+        onClose={() => {
+          setIsConsoleOpen(false);
+          setConsoleInterview(null);
+        }}
+        onInterviewCompleted={() => {
+          showSuccess('Interview completed! Official AI scorecard recorded in feedback.');
+          fetchInterviews();
+        }}
+      />
     </div>
   );
 };
