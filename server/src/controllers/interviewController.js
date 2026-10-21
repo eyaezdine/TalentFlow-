@@ -1,61 +1,63 @@
 const interviewService = require('../services/interviewService');
 
-/**
- * Schedule a new interview
- * POST /api/interviews
- */
+/** POST /api/interviews — Schedule a new interview */
 const scheduleInterview = async (req, res, next) => {
   try {
     const interview = await interviewService.scheduleInterview(req.body);
-    res.status(201).json({
-      message: 'Interview scheduled successfully',
-      data: interview,
-    });
+    res.status(201).json({ message: 'Interview scheduled successfully', data: interview });
   } catch (error) {
     next(error);
   }
 };
 
-/**
- * Reschedule an existing interview to a new date
- * PUT /api/interviews/:id/reschedule
- */
+/** PUT /api/interviews/:id/reschedule — Move to a new date */
 const rescheduleInterview = async (req, res, next) => {
   try {
     const { id } = req.params;
     const { date } = req.body;
     const updated = await interviewService.rescheduleInterview(id, date);
-    res.status(200).json({
-      message: 'Interview rescheduled successfully',
-      data: updated,
-    });
+    res.status(200).json({ message: 'Interview rescheduled successfully', data: updated });
   } catch (error) {
     next(error);
   }
 };
 
-/**
- * Update interview status (complete or cancel)
- * PUT /api/interviews/:id/status
- */
+/** PUT /api/interviews/:id/status — Mark as completed or cancelled (with optional notes) */
 const updateInterviewStatus = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const { status } = req.body;
-    const updated = await interviewService.updateInterviewStatus(id, status);
-    res.status(200).json({
-      message: `Interview marked as ${status} successfully`,
-      data: updated,
-    });
+    const { status, notes } = req.body;
+    const updated = await interviewService.updateInterviewStatus(id, status, notes);
+    res.status(200).json({ message: `Interview marked as ${status} successfully`, data: updated });
   } catch (error) {
     next(error);
   }
 };
 
-/**
- * Get all interviews with pagination and filtering
- * GET /api/interviews
- */
+/** PUT /api/interviews/:id/notes — Add/edit notes on any interview */
+const updateInterviewNotes = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { notes } = req.body;
+    const updated = await interviewService.updateInterviewNotes(id, notes);
+    res.status(200).json({ message: 'Interview notes updated', data: updated });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/** DELETE /api/interviews/:id — Remove an interview record */
+const deleteInterview = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const result = await interviewService.deleteInterview(id);
+    res.status(200).json({ message: 'Interview deleted successfully', ...result });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/** GET /api/interviews — List all with filters */
 const getInterviews = async (req, res, next) => {
   try {
     const result = await interviewService.getInterviews(req.query);
@@ -65,10 +67,7 @@ const getInterviews = async (req, res, next) => {
   }
 };
 
-/**
- * Get interview by ID
- * GET /api/interviews/:id
- */
+/** GET /api/interviews/:id — Single interview */
 const getInterviewById = async (req, res, next) => {
   try {
     const { id } = req.params;
@@ -79,10 +78,7 @@ const getInterviewById = async (req, res, next) => {
   }
 };
 
-/**
- * List all interviews of a candidate
- * GET /api/interviews/candidate/:candidateId
- */
+/** GET /api/interviews/candidate/:candidateId */
 const getInterviewsByCandidate = async (req, res, next) => {
   try {
     const { candidateId } = req.params;
@@ -93,10 +89,7 @@ const getInterviewsByCandidate = async (req, res, next) => {
   }
 };
 
-/**
- * List all interviews of a job offer
- * GET /api/interviews/job/:jobId
- */
+/** GET /api/interviews/job/:jobId */
 const getInterviewsByJob = async (req, res, next) => {
   try {
     const { jobId } = req.params;
@@ -111,6 +104,8 @@ module.exports = {
   scheduleInterview,
   rescheduleInterview,
   updateInterviewStatus,
+  updateInterviewNotes,
+  deleteInterview,
   getInterviews,
   getInterviewById,
   getInterviewsByCandidate,

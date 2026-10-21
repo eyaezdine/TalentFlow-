@@ -201,7 +201,7 @@ const executeClaudeCompletion = async ({
     return outputSchema.parse(simulated);
   }
 
-  // 2. Route cv_parsing exclusively through Groq (llama-3.3-70b-versatile)
+  // 2. Route cv_parsing exclusively through Groq (mixtral-8x7b-32768)
   const useGroq = Boolean(
     featureName === 'cv_parsing' &&
     groqApiKey &&
@@ -210,7 +210,7 @@ const executeClaudeCompletion = async ({
   );
 
   if (useGroq) {
-    const groqModel = process.env.GROQ_MODEL || 'llama-3.3-70b-versatile';
+    const groqModel = process.env.GROQ_MODEL || 'openai/gpt-oss-120b';
     const groqUrl = 'https://api.groq.com/openai/v1/chat/completions';
 
     console.log(`[AI LIVE CALL] Sending live request to Groq (${groqModel}) for ${featureName}`);
