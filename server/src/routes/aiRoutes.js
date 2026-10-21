@@ -29,4 +29,7 @@ router.post('/questions', aiController.generateInterviewQuestions);
 // Feature 4: In-interview rapid notes polish & scorecard synthesis
 router.post('/polish-notes', aiController.polishInterviewNotes);
 
+// Feature 5: AI Job Offer Generation
+router.post('/job-offer/generate', aiController.generateJobOffer);
+
 module.exports = router;
