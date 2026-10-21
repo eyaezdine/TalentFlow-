@@ -22,15 +22,13 @@ router.get('/job/:jobId', interviewController.getInterviewsByJob);
 
 // Single interview management
 router.get('/:id', interviewController.getInterviewById);
-router.put(
-  '/:id/reschedule',
-  validate(rescheduleInterviewSchema),
-  interviewController.rescheduleInterview
-);
-router.put(
-  '/:id/status',
-  validate(updateInterviewStatusSchema),
-  interviewController.updateInterviewStatus
-);
+router.put('/:id/reschedule', validate(rescheduleInterviewSchema), interviewController.rescheduleInterview);
+router.put('/:id/status', validate(updateInterviewStatusSchema), interviewController.updateInterviewStatus);
+
+// New: add/edit notes on any interview (planned, completed, or cancelled)
+router.put('/:id/notes', interviewController.updateInterviewNotes);
+
+// New: delete an interview record
+router.delete('/:id', interviewController.deleteInterview);
 
 module.exports = router;

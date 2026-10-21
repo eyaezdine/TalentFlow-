@@ -79,14 +79,16 @@ model Application {
 
 // Interview Model (Linking Candidate <-> Job Offer for an interview)
 model Interview {
-  id          String    @id @default(uuid())
-  candidateId String
-  jobId       String
-  date        DateTime
-  mode        String    // "in-person" | "video"
-  status      String    @default("planned") // "planned" | "completed" | "cancelled"
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  id              String    @id @default(uuid())
+  candidateId     String
+  jobId           String
+  date            DateTime
+  mode            String    // "in-person" | "video"
+  status          String    @default("planned") // "planned" | "completed" | "cancelled"
+  interviewerName String?   // Name of the recruiter/interviewer conducting the interview
+  notes           String?   // Post-interview feedback or pre-interview recruiter notes
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
   candidate   Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
   job         Job       @relation(fields: [jobId], references: [id], onDelete: Cascade)

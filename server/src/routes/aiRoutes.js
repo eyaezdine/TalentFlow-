@@ -9,6 +9,17 @@ router.use(authenticateToken);
 // Feature 1: Candidate 3-sentence summary & keywords
 router.post('/summary', aiController.generateCandidateSummary);
 
+const multer = require('multer');
+
+// Configure multer to store uploaded PDF in memory (max 10MB)
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 },
+});
+
+// Feature: Extract and Parse CV PDF with AI
+router.post('/parse-cv', upload.single('cv'), aiController.parseCvPdf);
+
 // Feature 2: Candidate <-> Job matching score & analysis
 router.post('/match', aiController.matchCandidateToJob);
 

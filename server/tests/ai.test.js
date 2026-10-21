@@ -1,7 +1,16 @@
 const request = require('supertest');
 const app = require('../src/app');
 const prisma = require('../src/utils/prisma');
-const { candidateSummarySchema, jobMatchSchema, interviewQuestionsSchema } = require('../src/ai/schemas');
+const { candidateSummarySchema, jobMatchSchema, interviewQuestionsSchema, cvParsingSchema } = require('../src/ai/schemas');
+
+jest.mock('pdf-parse', () => {
+  return jest.fn().mockImplementation(() =>
+    Promise.resolve({
+      text: 'Sarah Connor\nEmail: sarah.connor@cyberdyne.io\nPhone: +1-555-0199\nTechnical Skills: React, Node.js, PostgreSQL\nYears of Professional Experience: 6\nEducation Level: Master\'s Degree\nSenior software engineer with 6 years experience in web application architecture.',
+    })
+  );
+});
+
 
 describe('TalentFlow AI Module Integration Tests (Phase 5 - Rules R1, R2, R3, R4)', () => {
   let authToken = '';
@@ -174,6 +183,59 @@ Strong understanding of database management and REST architecture.`,
         expect(q).toHaveProperty('category');
         expect(q).toHaveProperty('rationale');
       });
+    });
+  });
+
+  // ----------------------------------------------------
+  // FEATURE: CV PDF EXTRACTION & AI PARSING
+  // ----------------------------------------------------
+  describe('POST /api/ai/parse-cv', () => {
+    it('should return 400 when no file is uploaded', async () => {
+      const res = await request(app)
+        .post('/api/ai/parse-cv')
+        .set('Authorization', `Bearer ${authToken}`);
+
+      expect(res.statusCode).toBe(400);
+      expect(res.body.code).toBe('NO_FILE_UPLOADED');
+    });
+
+    it('should return 400 when uploaded file is not a PDF', async () => {
+      const res = await request(app)
+        .post('/api/ai/parse-cv')
+        .set('Authorization', `Bearer ${authToken}`)
+        .attach('cv', Buffer.from('plain text resume'), {
+          filename: 'cv.txt',
+          contentType: 'text/plain',
+        });
+
+      expect(res.statusCode).toBe(400);
+      expect(res.body.code).toBe('INVALID_FILE_TYPE');
+    });
+
+    it('should extract and parse structured candidate profile from valid PDF', async () => {
+      const samplePdf = Buffer.from(
+        '%PDF-1.4\n1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R >>\nendobj\n4 0 obj\n<< /Length 120 >>\nstream\nBT /F1 12 Tf 100 700 Td (Sarah Connor - Software Engineer with 6 years experience in React, Node.js, PostgreSQL. Contact: sarah@example.com) Tj ET\nendstream\nendobj\nxref\n0 5\n0000000000 65535 f \n0000000009 00000 n \n0000000058 00000 n \n0000000115 00000 n \n0000000206 00000 n \ntrailer\n<< /Size 5 /Root 1 0 R >>\nstartxref\n380\n%%EOF'
+      );
+
+      const res = await request(app)
+        .post('/api/ai/parse-cv')
+        .set('Authorization', `Bearer ${authToken}`)
+        .attach('cv', samplePdf, {
+          filename: 'sarah_connor_cv.pdf',
+          contentType: 'application/pdf',
+        });
+
+      expect(res.statusCode).toBe(200);
+      expect(res.body.feature).toBe('cv_parsing');
+      expect(res.body.data).toHaveProperty('name');
+      expect(res.body.data).toHaveProperty('email');
+      expect(res.body.data).toHaveProperty('experienceYears');
+      expect(res.body.data).toHaveProperty('skills');
+      expect(res.body.data).toHaveProperty('cvText');
+
+      // Rule R2 Zod Validation schema check
+      const validation = cvParsingSchema.safeParse(res.body.data);
+      expect(validation.success).toBe(true);
     });
   });
 });

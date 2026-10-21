@@ -5,11 +5,94 @@ const {
   candidateSummarySchema,
   jobMatchSchema,
   interviewQuestionsSchema,
+  cvParsingSchema,
 } = require('../ai/schemas');
 
 const summaryPromptV1 = require('../ai/prompts/summaryPrompt.v1');
 const matchingPromptV1 = require('../ai/prompts/matchingPrompt.v1');
 const interviewPromptV1 = require('../ai/prompts/interviewPrompt.v1');
+const cvParsingPromptV1 = require('../ai/prompts/cvParsingPrompt.v1');
+
+// Helper to extract text from PDF buffer supporting multiple pdf-parse versions
+const extractTextFromPdfBuffer = async (buffer) => {
+  const pdfParsePkg = require('pdf-parse');
+  if (typeof pdfParsePkg === 'function') {
+    const data = await pdfParsePkg(buffer);
+    return (data.text || '').trim();
+  }
+  if (pdfParsePkg && pdfParsePkg.PDFParse) {
+    const parser = new pdfParsePkg.PDFParse({ data: buffer });
+    const res = await parser.getText();
+    if (typeof parser.destroy === 'function') {
+      try { await parser.destroy(); } catch (e) {}
+    }
+    return (typeof res === 'string' ? res : res?.text || '').trim();
+  }
+  throw new Error('Unsupported pdf-parse package interface');
+};
+
+/**
+ * Feature: Extract & Parse Candidate Profile from PDF CV
+ * POST /api/ai/parse-cv
+ */
+const parseCvPdf = async (req, res, next) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({
+        code: 'NO_FILE_UPLOADED',
+        message: 'A valid PDF file is required.',
+      });
+    }
+
+    if (req.file.mimetype !== 'application/pdf') {
+      return res.status(400).json({
+        code: 'INVALID_FILE_TYPE',
+        message: 'Only PDF documents (.pdf) are supported.',
+      });
+    }
+
+    // 1. Extract raw text from PDF buffer in memory
+    let rawPdfText = '';
+    try {
+      rawPdfText = await extractTextFromPdfBuffer(req.file.buffer);
+    } catch (parseError) {
+      return res.status(422).json({
+        code: 'PDF_PARSE_ERROR',
+        message: 'Failed to extract text from the provided PDF file. The file may be corrupt or encrypted.',
+      });
+    }
+
+    if (!rawPdfText || rawPdfText.length < 10) {
+      return res.status(422).json({
+        code: 'EMPTY_PDF_CONTENT',
+        message: 'The uploaded PDF does not contain extractable text (it might be a scanned image or empty).',
+      });
+    }
+
+    // 2. Build versioned prompt (Rule R4)
+    const userPrompt = cvParsingPromptV1.buildUserPrompt(rawPdfText);
+
+    // 3. Execute LLM completion with schema validation (Rule R2 & R3)
+    const parsedData = await executeClaudeCompletion({
+      systemPrompt: cvParsingPromptV1.systemPrompt,
+      userPrompt,
+      outputSchema: cvParsingSchema,
+      featureName: 'cv_parsing',
+    });
+
+    res.status(200).json({
+      feature: 'cv_parsing',
+      fileName: req.file.originalname,
+      data: {
+        ...parsedData,
+        cvText: rawPdfText,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 
 /**
  * Feature 1: Generate Professional Candidate Summary
@@ -195,4 +278,5 @@ module.exports = {
   generateCandidateSummary,
   matchCandidateToJob,
   generateInterviewQuestions,
+  parseCvPdf,
 };

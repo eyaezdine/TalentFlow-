@@ -57,8 +57,20 @@ const interviewQuestionsSchema = z.object({
     .max(5, 'Exactly 5 questions are required'),
 });
 
+// Feature: CV PDF Extraction & Parsing Output Schema
+const cvParsingSchema = z.object({
+  name: z.string().trim().min(1, 'Name is required').default('Candidate'),
+  email: z.string().trim().default(''),
+  phone: z.string().trim().default(''),
+  experienceYears: z.coerce.number().int().min(0).default(0),
+  skills: z.string().trim().default(''),
+  educationLevel: z.string().trim().default("Bachelor's Degree"),
+  summary: z.string().trim().default(''),
+});
+
 module.exports = {
   candidateSummarySchema,
   jobMatchSchema,
   interviewQuestionsSchema,
+  cvParsingSchema,
 };

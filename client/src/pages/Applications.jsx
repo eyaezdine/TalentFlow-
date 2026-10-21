@@ -290,29 +290,38 @@ const Applications = () => {
                         {/* Stage Transition & AI Controls */}
                         <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-xs gap-1">
                           <div className="flex items-center gap-1">
-                            <button
-                              onClick={() => {
-                                setSelectedAiCandidate(app.candidate);
-                                setSelectedAiJob(app.job);
-                                setIsMatchModalOpen(true);
-                              }}
-                              className="p-1 rounded-md border border-brand-200 bg-brand-50 text-brand-600 hover:bg-brand-100 transition"
-                              title="Run AI Candidate-Job Match"
-                            >
-                              <Sparkles className="h-3.5 w-3.5" />
-                            </button>
-                            <button
-                              onClick={() => {
-                                setSelectedAiAppId(app.id);
-                                setSelectedAiCandidate(app.candidate);
-                                setSelectedAiJob(app.job);
-                                setIsQuestionsModalOpen(true);
-                              }}
-                              className="p-1 rounded-md border border-purple-200 bg-purple-50 text-purple-600 hover:bg-purple-100 transition"
-                              title="Generate 5 Tailored Interview Questions"
-                            >
-                              <HelpCircle className="h-3.5 w-3.5" />
-                            </button>
+                            {/* NEW & SCREENING: show AI Match Score */}
+                            {(app.status === 'NEW' || app.status === 'SCREENING') && (
+                              <button
+                                onClick={() => {
+                                  setSelectedAiCandidate(app.candidate);
+                                  setSelectedAiJob(app.job);
+                                  setIsMatchModalOpen(true);
+                                }}
+                                className="p-1 rounded-md border border-brand-200 bg-brand-50 text-brand-600 hover:bg-brand-100 transition"
+                                title="Run AI Candidate-Job Match Score"
+                              >
+                                <Sparkles className="h-3.5 w-3.5" />
+                              </button>
+                            )}
+
+                            {/* INTERVIEW only: generate tailored interview questions */}
+                            {app.status === 'INTERVIEW' && (
+                              <button
+                                onClick={() => {
+                                  setSelectedAiAppId(app.id);
+                                  setSelectedAiCandidate(app.candidate);
+                                  setSelectedAiJob(app.job);
+                                  setIsQuestionsModalOpen(true);
+                                }}
+                                className="p-1 rounded-md border border-purple-200 bg-purple-50 text-purple-600 hover:bg-purple-100 transition"
+                                title="Generate 5 Tailored Interview Questions"
+                              >
+                                <HelpCircle className="h-3.5 w-3.5" />
+                              </button>
+                            )}
+
+                            {/* All stages: recruiter notes */}
                             <button
                               onClick={() => handleOpenNotesModal(app)}
                               className="p-1 rounded-md border border-slate-200 text-slate-400 hover:text-slate-700 hover:bg-slate-50 transition"
